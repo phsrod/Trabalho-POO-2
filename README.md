@@ -1,40 +1,88 @@
-# Trabalho de Programação Orientada a Objetos 2 – Aplicação Desktop
+# Sistema Administrativo da Barbearia
 
-O trabalho consistirá no desenvolvimento de uma **aplicação desktop** para uma barbearia, voltada principalmente **à administração geral**, dividida em **três fases**, cada uma abordando diferentes aspectos da interface, funcionalidades e persistência de dados.
+Aplicação desktop desenvolvida em Python com Tkinter para gerenciamento administrativo de barbearia.
 
+## Funcionalidades
 
----
+### ✅ Implementadas
+- **Sistema de Login**: Autenticação de administradores
+- **Dashboard Principal**: Interface principal com estatísticas e navegação
+- **Modelos de Dados**: Estruturas para Cliente, Serviço, Funcionário e Agendamento
 
-## ✅ Fase 1 – Interface Gráfica
-- **Objetivo:** Desenvolver a interface gráfica da aplicação utilizando **Tkinter** ou outra biblioteca de GUI para Python.
-- **Descrição:**  
-  Nesta fase, devem ser criadas as telas principais da aplicação, como login, home e cadastro de clientes, com elementos visuais consistentes, botões, campos de entrada e menus que facilitem a interação do usuário.
+### 🚧 Em Desenvolvimento
+- Gerenciamento de Clientes
+- Gerenciamento de Serviços
+- Gerenciamento de Funcionários
+- Visualização de Agendamentos
+- Relatórios e Estatísticas
+- Configurações do Sistema
 
-**Status:** [ ] Concluída  
+## Estrutura do Projeto
 
-**Comentários/Observações:**  
-> _Espaço para anotações sobre a interface gráfica, design, responsividade e funcionalidades básicas implementadas._
+```
+Trabalho01POO/
+├── gui/                    # Interface gráfica
+│   ├── __init__.py
+│   ├── login.py           # Tela de login
+│   └── home.py            # Dashboard principal
+├── models/                 # Modelos de dados
+│   ├── __init__.py
+│   ├── cliente.py         # Modelo Cliente
+│   ├── servico.py         # Modelo Serviço
+│   ├── funcionario.py     # Modelo Funcionário
+│   └── agendamento.py     # Modelo Agendamento
+├── main.py                # Arquivo principal
+├── requirements.txt       # Dependências
+└── README.md             # Documentação
+```
 
----
+## Como Executar
 
-## ✅ Fase 2 – Integração com Arquivos e Threads
-- **Objetivo:** Integrar a interface gráfica com a **manipulação de arquivos** e a utilização de **threads**.
-- **Descrição:**  
-  Implementar funcionalidades que permitam salvar e carregar dados de clientes, agendamentos e serviços em arquivos locais, além de aplicar threads para executar tarefas em segundo plano, melhorando a performance e a responsividade da aplicação.
+### Pré-requisitos
+- Python 3.8 ou superior
+- pip (gerenciador de pacotes Python)
 
-**Status:** [ ] Concluída  
+### Instalação
+1. Clone ou baixe o projeto
+2. Navegue até a pasta do projeto
+3. Instale as dependências:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-**Comentários/Observações:**  
-> _Espaço para anotações sobre a manipulação de arquivos, execução de threads e melhorias de desempenho._
+### Execução
+```bash
+python main.py
+```
 
----
+## Credenciais de Acesso
 
-## ✅ Fase 3 – Integração com Banco de Dados Remoto
-- **Objetivo:** Integrar todas as funcionalidades desenvolvidas até então com um **banco de dados remoto**.
-- **Descrição:**  
-  Nesta fase, os dados da aplicação (clientes, agendamentos, serviços) serão armazenados em um banco de dados remoto, permitindo persistência centralizada e acesso consistente. A interface gráfica deve refletir alterações em tempo real e suportar operações de CRUD completas.
+**Usuário:** admin  
+**Senha:** admin123
 
-**Status:** [ ] Concluída  
+## Tecnologias Utilizadas
 
-**Comentários/Observações:**  
-> _Espaço para anotações sobre a integração com o banco, consistência de dados e funcionalidades finais._
+- **Python 3.x**: Linguagem de programação
+- **Tkinter**: Framework para interface gráfica
+- **Pillow**: Biblioteca para manipulação de imagens
+- **Dataclasses**: Para definição dos modelos de dados
+
+## Arquitetura
+
+A aplicação segue o padrão MVC (Model-View-Controller):
+
+- **Models**: Definem a estrutura dos dados (Cliente, Serviço, etc.)
+- **Views**: Interfaces gráficas (login.py, home.py)
+- **Controllers**: Lógica de negócio (implementada nas views por simplicidade)
+
+## Próximos Passos
+
+1. Implementar telas de gerenciamento para cada entidade
+2. Adicionar persistência de dados (banco de dados)
+3. Implementar validações e tratamento de erros
+4. Adicionar relatórios e estatísticas
+5. Melhorar a interface visual e UX
+
+## Desenvolvido por
+
+Sistema desenvolvido para a disciplina de Programação Orientada a Objetos 2.
