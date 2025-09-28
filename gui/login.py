@@ -12,7 +12,7 @@ class LoginWindow:
     
     def create_window(self):
         """Cria a janela de login"""
-        self.window = tk.Toplevel()
+        self.window = tk.Tk()  # Mantemos Tk() se for a primeira janela
         self.window.title("Barbearia - Login Administrativo")
         self.window.geometry("400x300")
         self.window.resizable(False, False)
@@ -24,78 +24,56 @@ class LoginWindow:
         # Configurar estilo
         style = ttk.Style()
         style.theme_use('clam')
-        
-        # Frame principal
-        main_frame = ttk.Frame(self.window, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Título
-        title_label = ttk.Label(
-            main_frame, 
-            text="Sistema Administrativo", 
-            font=('Arial', 16, 'bold')
-        )
-        title_label.pack(pady=(0, 10))
-        
-        subtitle_label = ttk.Label(
-            main_frame, 
-            text="Barbearia Style", 
-            font=('Arial', 12)
-        )
-        subtitle_label.pack(pady=(0, 30))
-        
-        # Frame do formulário
-        form_frame = ttk.Frame(main_frame)
-        form_frame.pack(fill=tk.X, pady=10)
-        
-        # Usuário
-        ttk.Label(form_frame, text="Usuário:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.username_entry = ttk.Entry(form_frame, width=25, font=('Arial', 10))
-        self.username_entry.grid(row=0, column=1, sticky=tk.W, padx=(10, 0), pady=5)
-        
-        # Senha
-        ttk.Label(form_frame, text="Senha:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.password_entry = ttk.Entry(form_frame, width=25, show="*", font=('Arial', 10))
-        self.password_entry.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=5)
-
-        # Recuperar senha
-        forgot_password_label = tk.Label(
-            form_frame, 
-            text="Esqueci minha senha", 
-            fg="blue", 
-            cursor="hand2", 
-            font=('Arial', 9, 'underline')
-        )
-        forgot_password_label.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 0))
-
-        # Bind para simular a recuperação de senha
-        forgot_password_label.bind("<Button-1>", lambda e: self.recover_password())
-        
-        # Botões
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(30, 0))
-        
-        login_button = ttk.Button(
-            button_frame, 
-            text="Entrar", 
-            command=self.login,
-            style='Accent.TButton'
-        )
-        login_button.pack(side=tk.LEFT, padx=(0, 10))
-        
-        cancel_button = ttk.Button(
-            button_frame, 
-            text="Sair", 
-            command=self.cancel
-        )
-        cancel_button.pack(side=tk.LEFT)
-        
-        # Configurar estilo do botão de login
         style.configure('Accent.TButton', foreground='white', background='#0078d4')
         
+        # Frame principal centralizado
+        main_frame = ttk.Frame(self.window, padding=20)
+        main_frame.pack(expand=True)  # expand=True centraliza verticalmente
+
+        # Título
+        title_label = ttk.Label(main_frame, text="Sistema Administrativo", font=('Arial', 16, 'bold'))
+        title_label.pack(pady=(0, 5))
+
+        subtitle_label = ttk.Label(main_frame, text="Barbearia Style", font=('Arial', 12))
+        subtitle_label.pack(pady=(0, 20))
+
+        # Frame do formulário
+        form_frame = ttk.Frame(main_frame)
+        form_frame.pack()
+
+        # Centralizar colunas do grid
+        form_frame.columnconfigure(0, weight=1)
+        form_frame.columnconfigure(1, weight=1)
+
+        # Usuário
+        ttk.Label(form_frame, text="Usuário:").grid(row=0, column=0, sticky='e', pady=5)
+        self.username_entry = ttk.Entry(form_frame, width=25, font=('Arial', 10))
+        self.username_entry.grid(row=0, column=1, pady=5)
+
+        # Senha
+        ttk.Label(form_frame, text="Senha:").grid(row=1, column=0, sticky='e', pady=5)
+        self.password_entry = ttk.Entry(form_frame, width=25, show="*", font=('Arial', 10))
+        self.password_entry.grid(row=1, column=1, pady=5)
+
+        # Recuperar senha
+        forgot_password_label = tk.Label(form_frame, text="Esqueci minha senha", fg="blue", cursor="hand2",
+                                         font=('Arial', 9, 'underline'))
+        forgot_password_label.grid(row=2, column=1, sticky='w', pady=(5, 0))
+        forgot_password_label.bind("<Button-1>", lambda e: self.recover_password())
+
+        # Botões
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=20)
+
+        login_button = ttk.Button(button_frame, text="Entrar", command=self.login, style='Accent.TButton')
+        login_button.pack(side=tk.LEFT, padx=10)
+
+        cancel_button = ttk.Button(button_frame, text="Sair", command=self.cancel)
+        cancel_button.pack(side=tk.LEFT, padx=10)
+
         # Bind Enter key
         self.window.bind('<Return>', lambda e: self.login())
-        
+
         # Focus no campo usuário
         self.username_entry.focus()
     
@@ -117,7 +95,6 @@ class LoginWindow:
             messagebox.showerror("Erro", "Por favor, preencha todos os campos.")
             return
         
-        # Validação simples (em produção, isso seria feito com banco de dados)
         if username == "admin" and password == "admin123":
             messagebox.showinfo("Sucesso", "Login realizado com sucesso!")
             self.window.destroy()
