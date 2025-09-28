@@ -17,6 +17,10 @@ class BarbeariaApp:
     def start(self):
         """Inicia a aplicação"""
         try:
+            
+            root = tk.Tk()
+            root.withdraw()  # Esconder a janela raiz
+            
             # Configurar estilos
             StyleManager.configure_styles()
             

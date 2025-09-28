@@ -17,7 +17,7 @@ class HomeWindow:
     
     def create_window(self):
         """Cria a janela principal"""
-        self.window = tk.Tk()
+        self.window = tk.Toplevel()
         self.window.title("Barbearia - Sistema Administrativo")
         self.window.geometry("1200x800")
         self.window.state('zoomed')  # Maximizar no Windows

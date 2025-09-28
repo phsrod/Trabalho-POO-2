@@ -12,7 +12,7 @@ class LoginWindow:
     
     def create_window(self):
         """Cria a janela de login"""
-        self.window = tk.Tk()
+        self.window = tk.Toplevel()
         self.window.title("Barbearia - Login Administrativo")
         self.window.geometry("400x300")
         self.window.resizable(False, False)
