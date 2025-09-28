@@ -39,7 +39,7 @@ class LoginWindow:
         
         subtitle_label = ttk.Label(
             main_frame, 
-            text="Barbearia", 
+            text="Barbearia Style", 
             font=('Arial', 12)
         )
         subtitle_label.pack(pady=(0, 30))
@@ -57,6 +57,19 @@ class LoginWindow:
         ttk.Label(form_frame, text="Senha:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.password_entry = ttk.Entry(form_frame, width=25, show="*", font=('Arial', 10))
         self.password_entry.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+
+        # Recuperar senha
+        forgot_password_label = tk.Label(
+            form_frame, 
+            text="Esqueci minha senha", 
+            fg="blue", 
+            cursor="hand2", 
+            font=('Arial', 9, 'underline')
+        )
+        forgot_password_label.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=(5, 0))
+
+        # Bind para simular a recuperação de senha
+        forgot_password_label.bind("<Button-1>", lambda e: self.recover_password())
         
         # Botões
         button_frame = ttk.Frame(main_frame)
@@ -72,7 +85,7 @@ class LoginWindow:
         
         cancel_button = ttk.Button(
             button_frame, 
-            text="Cancelar", 
+            text="Sair", 
             command=self.cancel
         )
         cancel_button.pack(side=tk.LEFT)
@@ -114,6 +127,13 @@ class LoginWindow:
             self.password_entry.delete(0, tk.END)
             self.password_entry.focus()
     
+    def recover_password(self):
+        """Simula a recuperação de senha"""
+        messagebox.showinfo(
+            "Recuperar senha",
+            "Função de recuperação de senha ainda não implementada."
+        )
+
     def cancel(self):
         """Cancela o login e fecha a aplicação"""
         self.window.destroy()
