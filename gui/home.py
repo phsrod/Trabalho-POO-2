@@ -75,22 +75,31 @@ class HomeWindow:
         """Cria a barra superior com informações do usuário"""
         top_frame = ttk.Frame(self.window, style='Card.TFrame')
         top_frame.pack(fill=tk.X, padx=10, pady=10)
-        
-        # Informações do usuário
-        user_info = ttk.Label(
-            top_frame, 
-            text="Administrador | " + datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+
+        # Label que será atualizado
+        self.user_info = ttk.Label(
+            top_frame,
             style='Subtitle.TLabel'
         )
-        user_info.pack(side=tk.LEFT, padx=10, pady=10)
-        
+        self.user_info.pack(side=tk.LEFT, padx=10, pady=10)
+
         # Botão de logout
         logout_button = ttk.Button(
-            top_frame, 
-            text="Sair", 
+            top_frame,
+            text="Sair",
             command=self.logout
         )
         logout_button.pack(side=tk.RIGHT, padx=10, pady=10)
+
+        # Inicia a atualização em tempo real
+        self.update_time()
+
+    def update_time(self):
+        """Atualiza a hora em tempo real no label"""
+        agora = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        self.user_info.config(text="Administrador | " + agora)
+        self.window.after(1000, self.update_time)  # atualiza a cada 1 segundo
+
     
     def create_stats_cards(self, parent):
         """Cria os cards de estatísticas"""
