@@ -2,6 +2,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable
 import datetime
+from .clientes import ClientesWindow
+from .servicos import ServicosWindow
+from .funcionarios import FuncionariosWindow
+from .agendamentos import AgendamentosWindow
+from .relatorios import RelatoriosWindow
 
 class HomeWindow:
     """Janela principal (dashboard) da aplicação administrativa"""
@@ -179,23 +184,43 @@ class HomeWindow:
     
     def open_clients(self):
         """Abre a tela de gerenciamento de clientes"""
-        messagebox.showinfo("Info", "Funcionalidade de Clientes será implementada em breve.")
+        try:
+            clientes_window = ClientesWindow(self.window)
+            clientes_window.run()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir gerenciamento de clientes: {str(e)}")
     
     def open_services(self):
         """Abre a tela de gerenciamento de serviços"""
-        messagebox.showinfo("Info", "Funcionalidade de Serviços será implementada em breve.")
+        try:
+            servicos_window = ServicosWindow(self.window)
+            servicos_window.run()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir gerenciamento de serviços: {str(e)}")
     
     def open_employees(self):
         """Abre a tela de gerenciamento de funcionários"""
-        messagebox.showinfo("Info", "Funcionalidade de Funcionários será implementada em breve.")
+        try:
+            funcionarios_window = FuncionariosWindow(self.window)
+            funcionarios_window.run()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir gerenciamento de funcionários: {str(e)}")
     
     def open_schedules(self):
         """Abre a tela de agendamentos"""
-        messagebox.showinfo("Info", "Funcionalidade de Agendamentos será implementada em breve.")
+        try:
+            agendamentos_window = AgendamentosWindow(self.window)
+            agendamentos_window.run()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir agendamentos: {str(e)}")
     
     def open_reports(self):
         """Abre a tela de relatórios"""
-        messagebox.showinfo("Info", "Funcionalidade de Relatórios será implementada em breve.")
+        try:
+            relatorios_window = RelatoriosWindow(self.window)
+            relatorios_window.run()
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir relatórios: {str(e)}")
     
     def open_settings(self):
         """Abre a tela de configurações"""

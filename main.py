@@ -6,7 +6,7 @@ Aplicação desktop para gerenciamento administrativo de barbearia
 
 import tkinter as tk
 from tkinter import messagebox
-from gui import LoginWindow, HomeWindow
+from gui import LoginWindow, HomeWindow, StyleManager
 
 class BarbeariaApp:
     """Classe principal da aplicação"""
@@ -17,6 +17,9 @@ class BarbeariaApp:
     def start(self):
         """Inicia a aplicação"""
         try:
+            # Configurar estilos
+            StyleManager.configure_styles()
+            
             # Mostra a tela de login
             login_window = LoginWindow(self.on_login_success)
             login_window.run()

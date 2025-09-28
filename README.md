@@ -7,15 +7,18 @@ Aplicação desktop desenvolvida em Python com Tkinter para gerenciamento admini
 ### ✅ Implementadas
 - **Sistema de Login**: Autenticação de administradores
 - **Dashboard Principal**: Interface principal com estatísticas e navegação
-- **Modelos de Dados**: Estruturas para Cliente, Serviço, Funcionário e Agendamento
+- **Gerenciamento de Clientes**: Cadastro, edição, exclusão e visualização de clientes
+- **Gerenciamento de Serviços**: Controle completo dos serviços oferecidos
+- **Gerenciamento de Funcionários**: Cadastro e controle de funcionários
+- **Visualização de Agendamentos**: Lista e filtros de agendamentos
+- **Relatórios e Estatísticas**: Relatórios de vendas, serviços populares e performance
+- **Modelos de Dados**: Estruturas completas para todas as entidades
+- **Interface Moderna**: Design responsivo e profissional com tema personalizado
 
 ### 🚧 Em Desenvolvimento
-- Gerenciamento de Clientes
-- Gerenciamento de Serviços
-- Gerenciamento de Funcionários
-- Visualização de Agendamentos
-- Relatórios e Estatísticas
 - Configurações do Sistema
+- Integração com banco de dados
+- Sistema de backup e restauração
 
 ## Estrutura do Projeto
 
@@ -24,7 +27,13 @@ Trabalho01POO/
 ├── gui/                    # Interface gráfica
 │   ├── __init__.py
 │   ├── login.py           # Tela de login
-│   └── home.py            # Dashboard principal
+│   ├── home.py            # Dashboard principal
+│   ├── clientes.py        # Gerenciamento de clientes
+│   ├── servicos.py        # Gerenciamento de serviços
+│   ├── funcionarios.py    # Gerenciamento de funcionários
+│   ├── agendamentos.py    # Visualização de agendamentos
+│   ├── relatorios.py      # Relatórios e estatísticas
+│   └── styles.py          # Configurações de estilos
 ├── models/                 # Modelos de dados
 │   ├── __init__.py
 │   ├── cliente.py         # Modelo Cliente
