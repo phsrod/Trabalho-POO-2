@@ -195,18 +195,38 @@ class HomeWindow:
         self.canvas = tk.Canvas(self.content_frame, bg='white', highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self.content_frame, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
-        
+
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")  # só controla a área rolável
+            )
         )
-        
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # cria a janela dentro do canvas
+        self.canvas_window = self.canvas.create_window(
+            (0, 0), window=self.scrollable_frame, anchor="nw"
+        )
+
+        # garante que a largura do conteúdo acompanhe a largura do canvas
+        def resize_scrollable(event):
+            # Define a largura do frame para a largura do canvas
+            self.canvas.itemconfig(self.canvas_window, width=event.width)
+            # Atualiza a região de scroll
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+        self.canvas.bind("<Configure>", resize_scrollable)
+
+        # Configuração adicional para garantir que o scroll funcione corretamente
+        def update_scrollregion(event):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+        self.scrollable_frame.bind("<Configure>", update_scrollregion)
         
         # Pack canvas e scrollbar
-        self.canvas.pack(side="left", fill="both", expand=True, padx=(0, 0), pady=(0, 0))
-        self.scrollbar.pack(side="right", fill="y", pady=(0, 0))
+        # Pack canvas e scrollbar
+        self.canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=(10, 0))
+        self.scrollbar.pack(side="right", fill="y", pady=(10, 0))
         
         # Bind mousewheel para scroll
         def _on_mousewheel(event):
@@ -252,17 +272,22 @@ class HomeWindow:
             if hasattr(self.current_widget, 'main_frame'):
                 self.current_widget.main_frame.destroy()
             self.current_widget = None
-    
+
     def show_content(self, widget_class, title):
-        """Mostra um widget de conteúdo específico"""
         self.clear_content()
         self.content_title.config(text=title)
         self.close_button.pack(side=tk.RIGHT)
-        
-        # Criar nova instância do widget
+
+        # cria o widget
         self.current_widget = widget_class(self.scrollable_frame)
-        # O widget já tem seu main_frame que deve ser usado - esticado
-        self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+        # ocupa a largura toda, mas deixa a altura livre (scroll assume se precisar)
+        self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Força a atualização da região de scroll
+        self.canvas.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
     
     def close_current_content(self):
         """Fecha o conteúdo atual e volta para a mensagem de boas-vindas"""
