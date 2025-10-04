@@ -7,6 +7,7 @@ from .servicos import ServicosWidget
 from .funcionarios import FuncionariosWidget
 from .agendamentos import AgendamentosWidget
 from .relatorios import RelatoriosWidget
+from .styles import StyleManager  # Importando o StyleManager
 
 class HomeWindow:
     """Janela principal (dashboard) da aplicação administrativa"""
@@ -19,6 +20,10 @@ class HomeWindow:
         self.canvas = None
         self.scrollbar = None
         self.close_button = None
+
+        # Configura os estilos globais
+        StyleManager.configure_styles()
+        
         self.create_window()
     
     def create_window(self):
@@ -27,29 +32,10 @@ class HomeWindow:
         self.window.title("Barbearia - Sistema Administrativo")
         self.window.geometry("1200x800")
         self.window.state('zoomed')  # Maximizar no Windows
-        self.window.configure(bg='#f5f5f5')
+        self.window.configure(bg=StyleManager.get_color('light'))
         
-        # Configurar estilo
-        style = ttk.Style()
-        style.theme_use('clam')
-        self.configure_styles(style)
-        
-        # Criar layout principal
+        # Cria layout principal
         self.create_layout()
-    
-    def configure_styles(self, style):
-        """Configura os estilos da interface"""
-        # Estilo do menu
-        style.configure('Menu.TButton', padding=(10, 5))
-        
-        # Estilo dos cards
-        style.configure('Card.TFrame', background='white', relief='solid', borderwidth=1)
-        
-        # Estilo dos títulos
-        style.configure('Title.TLabel', font=('Arial', 14, 'bold'), background='white')
-        
-        # Estilo dos subtítulos
-        style.configure('Subtitle.TLabel', font=('Arial', 10), background='white', foreground='#666')
     
     def create_layout(self):
         """Cria o layout principal da janela"""
@@ -57,7 +43,7 @@ class HomeWindow:
         self.create_top_bar()
         
         # Frame principal
-        main_frame = ttk.Frame(self.window, padding="20")
+        main_frame = ttk.Frame(self.window, style='Main.TFrame', padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Título principal
@@ -79,13 +65,13 @@ class HomeWindow:
     
     def create_top_bar(self):
         """Cria a barra superior com informações do usuário"""
-        top_frame = ttk.Frame(self.window, style='Card.TFrame')
+        top_frame = ttk.Frame(self.window, style='Header.TFrame')
         top_frame.pack(fill=tk.X, padx=10, pady=10)
 
         # Label que será atualizado
         self.user_info = ttk.Label(
             top_frame,
-            style='Subtitle.TLabel'
+            style='Header.TLabel'
         )
         self.user_info.pack(side=tk.LEFT, padx=10, pady=10)
 
@@ -93,7 +79,8 @@ class HomeWindow:
         logout_button = ttk.Button(
             top_frame,
             text="Sair",
-            command=self.logout
+            command=self.logout,
+            style='Danger.TButton'
         )
         logout_button.pack(side=tk.RIGHT, padx=10, pady=10)
 
@@ -106,46 +93,30 @@ class HomeWindow:
         self.user_info.config(text="Administrador | " + agora)
         self.window.after(1000, self.update_time)  # atualiza a cada 1 segundo
 
-    
     def create_stats_cards(self, parent):
         """Cria os cards de estatísticas"""
-        stats_frame = ttk.Frame(parent)
+        stats_frame = ttk.Frame(parent, style='Main.TFrame')
         stats_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # Card 1 - Clientes
-        client_card = ttk.Frame(stats_frame, style='Card.TFrame')
-        client_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+        cards_info = [
+            ("Total de Clientes", "0"),
+            ("Agendamentos Hoje", "0"),
+            ("Receita Mensal", "R$ 0,00"),
+            ("Funcionários Ativos", "0")
+        ]
         
-        ttk.Label(client_card, text="Total de Clientes", style='Title.TLabel').pack(pady=(15, 5))
-        ttk.Label(client_card, text="0", font=('Arial', 24, 'bold'), background='white').pack(pady=(0, 15))
-        
-        # Card 2 - Agendamentos Hoje
-        schedule_card = ttk.Frame(stats_frame, style='Card.TFrame')
-        schedule_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-        
-        ttk.Label(schedule_card, text="Agendamentos Hoje", style='Title.TLabel').pack(pady=(15, 5))
-        ttk.Label(schedule_card, text="0", font=('Arial', 24, 'bold'), background='white').pack(pady=(0, 15))
-        
-        # Card 3 - Receita Mensal
-        revenue_card = ttk.Frame(stats_frame, style='Card.TFrame')
-        revenue_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-        
-        ttk.Label(revenue_card, text="Receita Mensal", style='Title.TLabel').pack(pady=(15, 5))
-        ttk.Label(revenue_card, text="R$ 0,00", font=('Arial', 24, 'bold'), background='white').pack(pady=(0, 15))
-        
-        # Card 4 - Funcionários
-        employee_card = ttk.Frame(stats_frame, style='Card.TFrame')
-        employee_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 0))
-        
-        ttk.Label(employee_card, text="Funcionários Ativos", style='Title.TLabel').pack(pady=(15, 5))
-        ttk.Label(employee_card, text="0", font=('Arial', 24, 'bold'), background='white').pack(pady=(0, 15))
+        for i, (title, value) in enumerate(cards_info):
+            card = ttk.Frame(stats_frame, style='Card.TFrame')
+            card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5 if i>0 else 0, 5))
+            
+            ttk.Label(card, text=title, style='Title.TLabel').pack(pady=(15, 5))
+            ttk.Label(card, text=value, style='Stat.TLabel').pack(pady=(0, 15))
     
     def create_navigation_menu(self, parent):
         """Cria o menu de navegação"""
-        nav_frame = ttk.Frame(parent)
+        nav_frame = ttk.Frame(parent, style='Main.TFrame')
         nav_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # Botões do menu
         menu_buttons = [
             ("Clientes", self.open_clients),
             ("Serviços", self.open_services),
@@ -170,7 +141,7 @@ class HomeWindow:
         self.content_frame.pack(fill=tk.BOTH, expand=True)
         
         # Cabeçalho da área de conteúdo com botão de fechar
-        header_frame = ttk.Frame(self.content_frame)
+        header_frame = ttk.Frame(self.content_frame, style='Main.TFrame')
         header_frame.pack(fill=tk.X, padx=5, pady=(5, 0))
         
         # Título da área de conteúdo
@@ -186,54 +157,33 @@ class HomeWindow:
             header_frame,
             text="✕",
             command=self.close_current_content,
-            width=3
+            width=3,
+            style='Danger.TButton'
         )
         self.close_button.pack(side=tk.RIGHT)
-        self.close_button.pack_forget()  # Inicialmente oculto
+        self.close_button.pack_forget()
         
         # Canvas e scrollbar para conteúdo rolável
-        self.canvas = tk.Canvas(self.content_frame, bg='white', highlightthickness=0)
+        self.canvas = tk.Canvas(self.content_frame, bg=StyleManager.get_color('white'), highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self.content_frame, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.scrollable_frame = ttk.Frame(self.canvas, style='Content.TFrame')
 
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(
-                scrollregion=self.canvas.bbox("all")  # só controla a área rolável
-            )
+            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
 
-        # cria a janela dentro do canvas
-        self.canvas_window = self.canvas.create_window(
-            (0, 0), window=self.scrollable_frame, anchor="nw"
-        )
+        self.canvas_window = self.canvas.create_window((0,0), window=self.scrollable_frame, anchor="nw")
 
-        # garante que a largura do conteúdo acompanhe a largura do canvas
-        def resize_scrollable(event):
-            # Define a largura do frame para a largura do canvas
-            self.canvas.itemconfig(self.canvas_window, width=event.width)
-            # Atualiza a região de scroll
-            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width))
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
 
-        self.canvas.bind("<Configure>", resize_scrollable)
-
-        # Configuração adicional para garantir que o scroll funcione corretamente
-        def update_scrollregion(event):
-            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-
-        self.scrollable_frame.bind("<Configure>", update_scrollregion)
-        
-        # Pack canvas e scrollbar
-        # Pack canvas e scrollbar
         self.canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=(10, 0))
         self.scrollbar.pack(side="right", fill="y", pady=(10, 0))
-        
-        # Bind mousewheel para scroll
-        def _on_mousewheel(event):
-            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        self.canvas.bind("<MouseWheel>", _on_mousewheel)
-        
-        # Mostrar mensagem de boas-vindas inicial
+
+        self.canvas.bind("<MouseWheel>", lambda event: self.canvas.yview_scroll(int(-1*(event.delta/120)), "units"))
+
+        # Mensagem de boas-vindas inicial
         self.show_welcome_message()
     
     def show_welcome_message(self):
@@ -242,7 +192,6 @@ class HomeWindow:
         self.content_title.config(text="Bem-vindo ao Sistema Administrativo da Barbearia")
         self.close_button.pack_forget()
         
-        # Texto de boas-vindas
         welcome_text = """
         Este sistema permite gerenciar todos os aspectos administrativos da barbearia:
         
@@ -267,76 +216,59 @@ class HomeWindow:
         """Limpa o conteúdo atual"""
         for widget in self.scrollable_frame.winfo_children():
             widget.destroy()
-        if self.current_widget:
-            # Destruir o widget atual se existir
-            if hasattr(self.current_widget, 'main_frame'):
-                self.current_widget.main_frame.destroy()
+        if self.current_widget and hasattr(self.current_widget, 'main_frame'):
+            self.current_widget.main_frame.destroy()
             self.current_widget = None
 
     def show_content(self, widget_class, title):
         self.clear_content()
         self.content_title.config(text=title)
         self.close_button.pack(side=tk.RIGHT)
-
-        # cria o widget
         self.current_widget = widget_class(self.scrollable_frame)
-
-        # ocupa a largura toda, mas deixa a altura livre (scroll assume se precisar)
         self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Força a atualização da região de scroll
         self.canvas.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
-    
     def close_current_content(self):
         """Fecha o conteúdo atual e volta para a mensagem de boas-vindas"""
         self.show_welcome_message()
     
     def open_clients(self):
-        """Abre a tela de gerenciamento de clientes"""
         try:
             self.show_content(ClientesWidget, "Gerenciamento de Clientes")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir gerenciamento de clientes: {str(e)}")
     
     def open_services(self):
-        """Abre a tela de gerenciamento de serviços"""
         try:
             self.show_content(ServicosWidget, "Gerenciamento de Serviços")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir gerenciamento de serviços: {str(e)}")
     
     def open_employees(self):
-        """Abre a tela de gerenciamento de funcionários"""
         try:
             self.show_content(FuncionariosWidget, "Gerenciamento de Funcionários")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir gerenciamento de funcionários: {str(e)}")
     
     def open_schedules(self):
-        """Abre a tela de agendamentos"""
         try:
             self.show_content(AgendamentosWidget, "Visualização de Agendamentos")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir agendamentos: {str(e)}")
     
     def open_reports(self):
-        """Abre a tela de relatórios"""
         try:
             self.show_content(RelatoriosWidget, "Relatórios e Estatísticas")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir relatórios: {str(e)}")
     
     def open_settings(self):
-        """Abre a tela de configurações"""
         messagebox.showinfo("Info", "Funcionalidade de Configurações será implementada em breve.")
     
     def logout(self):
-        """Realiza logout do sistema"""
         if messagebox.askyesno("Confirmar", "Deseja realmente sair do sistema?"):
             self.window.destroy()
     
     def run(self):
-        """Executa a janela principal"""
         self.window.mainloop()

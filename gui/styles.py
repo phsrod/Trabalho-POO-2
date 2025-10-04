@@ -98,16 +98,19 @@ class StyleManager:
         
         # Botão de menu
         style.configure('Menu.TButton',
-                       background=StyleManager.COLORS['white'],
-                       foreground=StyleManager.COLORS['dark'],
-                       font=('Arial', 10),
-                       padding=(15, 8),
-                       relief='flat',
-                       borderwidth=1)
-        
+               background=StyleManager.COLORS['primary'],  # azul base
+               foreground=StyleManager.COLORS['white'],
+               font=('Arial', 10),
+               padding=(15, 8),
+               relief='flat',
+               borderwidth=0)
+
+        # Mapeamento de estados
         style.map('Menu.TButton',
-                 background=[('active', StyleManager.COLORS['light']),
-                           ('pressed', StyleManager.COLORS['border'])])
+                background=[('active', StyleManager.COLORS['primary_dark']),
+                            ('pressed', StyleManager.COLORS['primary_dark'])],
+                foreground=[('active', StyleManager.COLORS['white']),
+                            ('pressed', StyleManager.COLORS['white'])])
     
     @staticmethod
     def _configure_frame_styles(style):
