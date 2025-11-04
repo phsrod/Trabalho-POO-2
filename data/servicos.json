@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "nome": "Corte Masculino",
+    "descricao": "Corte de cabelo masculino tradicional",
+    "preco": 25.0,
+    "duracao_minutos": 30,
+    "ativo": true
+  },
+  {
+    "id": 2,
+    "nome": "Barba",
+    "descricao": "Aparar e modelar barba",
+    "preco": 15.0,
+    "duracao_minutos": 20,
+    "ativo": true
+  },
+  {
+    "id": 3,
+    "nome": "Corte + Barba",
+    "descricao": "Corte de cabelo + barba",
+    "preco": 35.0,
+    "duracao_minutos": 45,
+    "ativo": true
+  },
+  {
+    "id": 4,
+    "nome": "Sobrancelha",
+    "descricao": "Aparar sobrancelhas",
+    "preco": 10.0,
+    "duracao_minutos": 15,
+    "ativo": true
+  },
+  {
+    "id": 5,
+    "nome": "Corte Feminino",
+    "descricao": "Corte de cabelo feminino",
+    "preco": 40.0,
+    "duracao_minutos": 60,
+    "ativo": false
+  },
+  {
+    "id": 6,
+    "nome": "Pintura",
+    "descricao": "Pintura de cabelo",
+    "preco": 80.0,
+    "duracao_minutos": 120,
+    "ativo": true
+  }
+]

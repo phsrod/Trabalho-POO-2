@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from typing import List, Optional
 from models import Servico
 from decimal import Decimal
+from repositories import get_data_manager
 
 class ServicosWindow:
     """Janela de gerenciamento de serviços"""
@@ -296,12 +297,14 @@ class ServicosWindow:
             if servico:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o serviço {servico.nome}?"):
                     servico.ativo = False
+                    # Salvar no arquivo após exclusão
+                    self.data_manager.save_servicos(self.servicos)
                     self.refresh_servicos_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Serviço excluído com sucesso!")
     
     def save_servico(self):
-        """Salva o serviço"""
+        """Salva o serviço usando thread"""
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         preco_str = self.preco_entry.get().strip()
@@ -350,6 +353,8 @@ class ServicosWindow:
             self.servicos.append(novo_servico)
             messagebox.showinfo("Sucesso", "Serviço cadastrado com sucesso!")
         
+        # Salvar no arquivo usando thread
+        self.data_manager.save_servicos(self.servicos)
         self.refresh_servicos_list()
         self.clear_form()
     
@@ -382,9 +387,26 @@ class ServicosWidget:
         self.parent = parent
         self.servicos: List[Servico] = []
         self.current_servico: Optional[Servico] = None
+        self.data_manager = get_data_manager()
         self.create_widget()
-        self.load_sample_data()
+        self.load_data_from_file()
         self.refresh_servicos_list()
+    
+    def load_data_from_file(self):
+        """Carrega dados do arquivo usando thread"""
+        def on_data_loaded(servicos_loaded):
+            self.servicos = servicos_loaded
+            # Se não há dados, carrega dados de exemplo
+            if not self.servicos:
+                self.load_sample_data()
+            self.refresh_servicos_list()
+        
+        # Mostra indicador de carregamento
+        self.servicos = []
+        self.refresh_servicos_list()
+        
+        # Carrega dados em thread
+        self.data_manager.load_servicos(on_data_loaded)
     
     def create_widget(self):
         """Cria o widget de serviços"""
@@ -657,12 +679,14 @@ class ServicosWidget:
             if servico:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o serviço {servico.nome}?"):
                     servico.ativo = False
+                    # Salvar no arquivo após exclusão
+                    self.data_manager.save_servicos(self.servicos)
                     self.refresh_servicos_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Serviço excluído com sucesso!")
     
     def save_servico(self):
-        """Salva o serviço"""
+        """Salva o serviço usando thread"""
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         preco_str = self.preco_entry.get().strip()
@@ -711,6 +735,8 @@ class ServicosWidget:
             self.servicos.append(novo_servico)
             messagebox.showinfo("Sucesso", "Serviço cadastrado com sucesso!")
         
+        # Salvar no arquivo usando thread
+        self.data_manager.save_servicos(self.servicos)
         self.refresh_servicos_list()
         self.clear_form()
     

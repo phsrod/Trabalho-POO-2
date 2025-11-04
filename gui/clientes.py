@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from typing import List, Optional
 from models import Cliente
 from datetime import datetime
+from repositories import get_data_manager
 
 class ClientesWindow:
     """Janela de gerenciamento de clientes"""
@@ -303,12 +304,14 @@ class ClientesWindow:
             if cliente:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
                     cliente.ativo = False
+                    # Salvar no arquivo após exclusão
+                    self.data_manager.save_clientes(self.clientes)
                     self.refresh_clientes_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!")
     
     def save_cliente(self):
-        """Salva o cliente"""
+        """Salva o cliente usando thread"""
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         telefone = self.telefone_entry.get().strip()
@@ -340,6 +343,8 @@ class ClientesWindow:
             self.clientes.append(novo_cliente)
             messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
         
+        # Salvar no arquivo usando thread
+        self.data_manager.save_clientes(self.clientes)
         self.refresh_clientes_list()
         self.clear_form()
     
@@ -373,9 +378,26 @@ class ClientesWidget:
         self.parent = parent
         self.clientes: List[Cliente] = []
         self.current_cliente: Optional[Cliente] = None
+        self.data_manager = get_data_manager()
         self.create_widget()
-        self.load_sample_data()
+        self.load_data_from_file()
         self.refresh_clientes_list()
+    
+    def load_data_from_file(self):
+        """Carrega dados do arquivo usando thread"""
+        def on_data_loaded(clientes_loaded):
+            self.clientes = clientes_loaded
+            # Se não há dados, carrega dados de exemplo
+            if not self.clientes:
+                self.load_sample_data()
+            self.refresh_clientes_list()
+        
+        # Mostra indicador de carregamento
+        self.clientes = []
+        self.refresh_clientes_list()
+        
+        # Carrega dados em thread
+        self.data_manager.load_clientes(on_data_loaded)
     
     def create_widget(self):
         """Cria o widget de clientes"""
@@ -655,12 +677,14 @@ class ClientesWidget:
             if cliente:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
                     cliente.ativo = False
+                    # Salvar no arquivo após exclusão
+                    self.data_manager.save_clientes(self.clientes)
                     self.refresh_clientes_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!")
     
     def save_cliente(self):
-        """Salva o cliente"""
+        """Salva o cliente usando thread"""
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         telefone = self.telefone_entry.get().strip()
@@ -692,6 +716,8 @@ class ClientesWidget:
             self.clientes.append(novo_cliente)
             messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
         
+        # Salvar no arquivo usando thread
+        self.data_manager.save_clientes(self.clientes)
         self.refresh_clientes_list()
         self.clear_form()
     

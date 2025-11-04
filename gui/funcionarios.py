@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 from typing import List, Optional
 from models import Funcionario
 from datetime import datetime
+from repositories import get_data_manager
 
 class FuncionariosWindow:
     """Janela de gerenciamento de funcionários"""
@@ -314,12 +315,14 @@ class FuncionariosWindow:
             if funcionario:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
                     funcionario.ativo = False
+                    # Salvar no arquivo após exclusão
+                    self.data_manager.save_funcionarios(self.funcionarios)
                     self.refresh_funcionarios_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Funcionário excluído com sucesso!")
     
     def save_funcionario(self):
-        """Salva o funcionário"""
+        """Salva o funcionário usando thread"""
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         cargo = self.cargo_combo.get().strip()
@@ -364,6 +367,8 @@ class FuncionariosWindow:
             self.funcionarios.append(novo_funcionario)
             messagebox.showinfo("Sucesso", "Funcionário cadastrado com sucesso!")
         
+        # Salvar no arquivo usando thread
+        self.data_manager.save_funcionarios(self.funcionarios)
         self.refresh_funcionarios_list()
         self.clear_form()
     
@@ -398,9 +403,26 @@ class FuncionariosWidget:
         self.parent = parent
         self.funcionarios: List[Funcionario] = []
         self.current_funcionario: Optional[Funcionario] = None
+        self.data_manager = get_data_manager()
         self.create_widget()
-        self.load_sample_data()
+        self.load_data_from_file()
         self.refresh_funcionarios_list()
+    
+    def load_data_from_file(self):
+        """Carrega dados do arquivo usando thread"""
+        def on_data_loaded(funcionarios_loaded):
+            self.funcionarios = funcionarios_loaded
+            # Se não há dados, carrega dados de exemplo
+            if not self.funcionarios:
+                self.load_sample_data()
+            self.refresh_funcionarios_list()
+        
+        # Mostra indicador de carregamento
+        self.funcionarios = []
+        self.refresh_funcionarios_list()
+        
+        # Carrega dados em thread
+        self.data_manager.load_funcionarios(on_data_loaded)
     
     def create_widget(self):
         """Cria o widget de funcionários"""
@@ -691,12 +713,14 @@ class FuncionariosWidget:
             if funcionario:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
                     funcionario.ativo = False
+                    # Salvar no arquivo após exclusão
+                    self.data_manager.save_funcionarios(self.funcionarios)
                     self.refresh_funcionarios_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Funcionário excluído com sucesso!")
     
     def save_funcionario(self):
-        """Salva o funcionário"""
+        """Salva o funcionário usando thread"""
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         cargo = self.cargo_combo.get().strip()
@@ -741,6 +765,8 @@ class FuncionariosWidget:
             self.funcionarios.append(novo_funcionario)
             messagebox.showinfo("Sucesso", "Funcionário cadastrado com sucesso!")
         
+        # Salvar no arquivo usando thread
+        self.data_manager.save_funcionarios(self.funcionarios)
         self.refresh_funcionarios_list()
         self.clear_form()
     

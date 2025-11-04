@@ -1,9 +1,10 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from typing import List
 from models import Cliente, Funcionario, Servico, Agendamento
 from datetime import datetime, timedelta
 from collections import defaultdict
+from repositories import get_data_manager
 
 class RelatoriosWindow:
     """Janela de relatórios e estatísticas"""
@@ -366,6 +367,107 @@ class RelatoriosWindow:
                 f"R$ {receita:.2f}"
             ))
     
+    def export_relatorio(self):
+        """Exporta relatório em arquivo TXT usando thread"""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")],
+            title="Salvar Relatório"
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            data_inicial = datetime.strptime(self.data_inicial_var.get(), "%d/%m/%Y")
+            data_final = datetime.strptime(self.data_final_var.get(), "%d/%m/%Y")
+        except ValueError:
+            messagebox.showerror("Erro", "Formato de data inválido. Use DD/MM/AAAA")
+            return
+        
+        messagebox.showinfo("Exportando", "Exportando relatório em segundo plano...")
+        
+        def on_export_complete(success, result):
+            if success:
+                messagebox.showinfo("Sucesso", f"Relatório exportado com sucesso!\n\n{result}")
+            else:
+                messagebox.showerror("Erro", f"Erro ao exportar relatório:\n{result}")
+        
+        self.data_manager.export_relatorio_txt(
+            self.clientes, self.funcionarios, self.servicos, self.agendamentos,
+            data_inicial, data_final, filename, on_export_complete
+        )
+    
+    def load_data_from_files(self):
+        """Carrega dados dos arquivos usando threads"""
+        from decimal import Decimal
+        
+        def on_clientes_loaded(clientes):
+            self.clientes = clientes
+            if not self.clientes:
+                self.clientes = [
+                    Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
+                    Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
+                ]
+            check_all_loaded()
+        
+        def on_funcionarios_loaded(funcionarios):
+            self.funcionarios = funcionarios
+            if not self.funcionarios:
+                self.funcionarios = [
+                    Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
+                    Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
+                ]
+            check_all_loaded()
+        
+        def on_servicos_loaded(servicos):
+            self.servicos = servicos
+            if not self.servicos:
+                self.servicos = [
+                    Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", Decimal('25.00'), 30, True),
+                    Servico(2, "Barba", "Aparar e modelar barba", Decimal('15.00'), 20, True),
+                    Servico(3, "Corte + Barba", "Corte de cabelo + barba", Decimal('35.00'), 45, True),
+                ]
+            check_all_loaded()
+        
+        def on_agendamentos_loaded(agendamentos):
+            self.agendamentos = agendamentos
+            check_all_loaded()
+        
+        loaded_count = [0]
+        def check_all_loaded():
+            loaded_count[0] += 1
+            if loaded_count[0] == 4:
+                if not self.agendamentos:
+                    hoje = datetime.now().date()
+                    for i in range(30):
+                        data = hoje - timedelta(days=i)
+                        if i < 5:
+                            for j in range(3):
+                                cliente_id = (i + j) % len(self.clientes) + 1 if self.clientes else 1
+                                funcionario_id = (i + j) % len(self.funcionarios) + 1 if self.funcionarios else 1
+                                servico_id = (i + j) % len(self.servicos) + 1 if self.servicos else 1
+                                servico = next((s for s in self.servicos if s.id == servico_id), None)
+                                if servico:
+                                    agendamento = Agendamento(
+                                        id=len(self.agendamentos) + 1,
+                                        cliente_id=cliente_id,
+                                        funcionario_id=funcionario_id,
+                                        servico_id=servico_id,
+                                        data_agendamento=data,
+                                        horario_inicio=datetime.combine(data, datetime.min.time().replace(hour=9 + j)),
+                                        horario_fim=datetime.combine(data, datetime.min.time().replace(hour=9 + j, minute=30)),
+                                        status="concluido",
+                                        valor_total=servico.preco
+                                    )
+                                    self.agendamentos.append(agendamento)
+                self.update_statistics()
+        
+        self.data_manager.load_clientes(on_clientes_loaded)
+        self.data_manager.load_funcionarios(on_funcionarios_loaded)
+        self.data_manager.load_servicos(on_servicos_loaded)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded)
+    
     def run(self):
         """Executa a janela"""
         self.window.mainloop()
@@ -380,8 +482,9 @@ class RelatoriosWidget:
         self.funcionarios: List[Funcionario] = []
         self.servicos: List[Servico] = []
         self.agendamentos: List[Agendamento] = []
+        self.data_manager = get_data_manager()
         self.create_widget()
-        self.load_sample_data()
+        self.load_data_from_files()
         self.update_statistics()
     
     def create_widget(self):
@@ -456,6 +559,14 @@ class RelatoriosWidget:
             command=self.update_statistics,
             style='Action.TButton'
         ).grid(row=0, column=6, sticky=tk.W, padx=(20, 0), pady=5)
+        
+        # Botão exportar relatório
+        ttk.Button(
+            filters_content, 
+            text="Exportar TXT", 
+            command=self.export_relatorio,
+            style='Action.TButton'
+        ).grid(row=0, column=7, sticky=tk.W, padx=(10, 0), pady=5)
     
     def create_general_stats(self):
         """Cria as estatísticas gerais"""
@@ -717,3 +828,104 @@ class RelatoriosWidget:
                 quantidade,
                 f"R$ {receita:.2f}"
             ))
+    
+    def export_relatorio(self):
+        """Exporta relatório em arquivo TXT usando thread"""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")],
+            title="Salvar Relatório"
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            data_inicial = datetime.strptime(self.data_inicial_var.get(), "%d/%m/%Y")
+            data_final = datetime.strptime(self.data_final_var.get(), "%d/%m/%Y")
+        except ValueError:
+            messagebox.showerror("Erro", "Formato de data inválido. Use DD/MM/AAAA")
+            return
+        
+        messagebox.showinfo("Exportando", "Exportando relatório em segundo plano...")
+        
+        def on_export_complete(success, result):
+            if success:
+                messagebox.showinfo("Sucesso", f"Relatório exportado com sucesso!\n\n{result}")
+            else:
+                messagebox.showerror("Erro", f"Erro ao exportar relatório:\n{result}")
+        
+        self.data_manager.export_relatorio_txt(
+            self.clientes, self.funcionarios, self.servicos, self.agendamentos,
+            data_inicial, data_final, filename, on_export_complete
+        )
+    
+    def load_data_from_files(self):
+        """Carrega dados dos arquivos usando threads"""
+        from decimal import Decimal
+        
+        def on_clientes_loaded(clientes):
+            self.clientes = clientes
+            if not self.clientes:
+                self.clientes = [
+                    Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
+                    Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
+                ]
+            check_all_loaded()
+        
+        def on_funcionarios_loaded(funcionarios):
+            self.funcionarios = funcionarios
+            if not self.funcionarios:
+                self.funcionarios = [
+                    Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
+                    Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
+                ]
+            check_all_loaded()
+        
+        def on_servicos_loaded(servicos):
+            self.servicos = servicos
+            if not self.servicos:
+                self.servicos = [
+                    Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", Decimal('25.00'), 30, True),
+                    Servico(2, "Barba", "Aparar e modelar barba", Decimal('15.00'), 20, True),
+                    Servico(3, "Corte + Barba", "Corte de cabelo + barba", Decimal('35.00'), 45, True),
+                ]
+            check_all_loaded()
+        
+        def on_agendamentos_loaded(agendamentos):
+            self.agendamentos = agendamentos
+            check_all_loaded()
+        
+        loaded_count = [0]
+        def check_all_loaded():
+            loaded_count[0] += 1
+            if loaded_count[0] == 4:
+                if not self.agendamentos:
+                    hoje = datetime.now().date()
+                    for i in range(30):
+                        data = hoje - timedelta(days=i)
+                        if i < 5:
+                            for j in range(3):
+                                cliente_id = (i + j) % len(self.clientes) + 1 if self.clientes else 1
+                                funcionario_id = (i + j) % len(self.funcionarios) + 1 if self.funcionarios else 1
+                                servico_id = (i + j) % len(self.servicos) + 1 if self.servicos else 1
+                                servico = next((s for s in self.servicos if s.id == servico_id), None)
+                                if servico:
+                                    agendamento = Agendamento(
+                                        id=len(self.agendamentos) + 1,
+                                        cliente_id=cliente_id,
+                                        funcionario_id=funcionario_id,
+                                        servico_id=servico_id,
+                                        data_agendamento=data,
+                                        horario_inicio=datetime.combine(data, datetime.min.time().replace(hour=9 + j)),
+                                        horario_fim=datetime.combine(data, datetime.min.time().replace(hour=9 + j, minute=30)),
+                                        status="concluido",
+                                        valor_total=servico.preco
+                                    )
+                                    self.agendamentos.append(agendamento)
+                self.update_statistics()
+        
+        self.data_manager.load_clientes(on_clientes_loaded)
+        self.data_manager.load_funcionarios(on_funcionarios_loaded)
+        self.data_manager.load_servicos(on_servicos_loaded)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded)
