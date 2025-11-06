@@ -12,7 +12,8 @@ from .styles import StyleManager  # Importando o StyleManager
 class HomeWindow:
     """Janela principal (dashboard) da aplicação administrativa"""
     
-    def __init__(self):
+    def __init__(self, root: tk.Tk):
+        self.root = root
         self.window = None
         self.current_widget = None
         self.content_frame = None
@@ -28,7 +29,7 @@ class HomeWindow:
     
     def create_window(self):
         """Cria a janela principal"""
-        self.window = tk.Toplevel()
+        self.window = tk.Toplevel(self.root)  # Usar o root passado
         self.window.title("Barbearia - Sistema Administrativo")
         self.window.geometry("1200x800")
         self.window.state('zoomed')  # Maximizar no Windows
@@ -269,6 +270,11 @@ class HomeWindow:
     def logout(self):
         if messagebox.askyesno("Confirmar", "Deseja realmente sair do sistema?"):
             self.window.destroy()
+            if self.root:
+                self.root.quit()
+                self.root.destroy()
     
     def run(self):
-        self.window.mainloop()
+        # O método run não precisa fazer nada aqui
+        # A janela já foi criada e o wait_window é chamado no app_controller
+        pass

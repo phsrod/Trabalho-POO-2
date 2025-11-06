@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import List
 from models import Cliente, Funcionario, Servico, Agendamento
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from collections import defaultdict
 from repositories import get_data_manager
 
@@ -86,9 +86,10 @@ class RelatoriosWindow:
         self.period_combo.grid(row=0, column=1, sticky=tk.W, padx=(0, 20), pady=5)
         self.period_combo.bind('<<ComboboxSelected>>', self.on_period_change)
         
-        # Data inicial
+        # Data inicial (últimos 30 dias por padrão)
         ttk.Label(filters_content, text="Data Inicial:").grid(row=0, column=2, sticky=tk.W, padx=(0, 10), pady=5)
-        self.data_inicial_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
+        data_inicial_padrao = (datetime.now() - timedelta(days=30)).strftime("%d/%m/%Y")
+        self.data_inicial_var = tk.StringVar(value=data_inicial_padrao)
         self.data_inicial_entry = ttk.Entry(filters_content, textvariable=self.data_inicial_var, width=12, font=('Arial', 10))
         self.data_inicial_entry.grid(row=0, column=3, sticky=tk.W, padx=(0, 20), pady=5)
         
@@ -279,6 +280,9 @@ class RelatoriosWindow:
             inicio_ano = hoje.replace(month=1, day=1)
             self.data_inicial_var.set(inicio_ano.strftime("%d/%m/%Y"))
             self.data_final_var.set(hoje.strftime("%d/%m/%Y"))
+        
+        # Atualizar estatísticas após mudar o período
+        self.update_statistics()
     
     def update_statistics(self):
         """Atualiza as estatísticas"""
@@ -287,11 +291,37 @@ class RelatoriosWindow:
             data_inicial = datetime.strptime(self.data_inicial_var.get(), "%d/%m/%Y").date()
             data_final = datetime.strptime(self.data_final_var.get(), "%d/%m/%Y").date()
             
-            # Filtrar agendamentos do período
-            agendamentos_periodo = [
-                a for a in self.agendamentos 
-                if a.data_agendamento and data_inicial <= a.data_agendamento <= data_final
-            ]
+            # Filtrar agendamentos do período (apenas concluídos para relatórios)
+            agendamentos_periodo = []
+            for a in self.agendamentos:
+                # Verificar status
+                if a.status != 'concluido':
+                    continue
+                
+                # Verificar se tem data_agendamento
+                if not a.data_agendamento:
+                    continue
+                
+                # Converter data_agendamento para date se for datetime
+                try:
+                    # Normalizar data_agendamento para date
+                    if isinstance(a.data_agendamento, datetime):
+                        data_agendamento_date = a.data_agendamento.date()
+                    elif isinstance(a.data_agendamento, date):
+                        data_agendamento_date = a.data_agendamento
+                    elif hasattr(a.data_agendamento, 'date') and callable(getattr(a.data_agendamento, 'date', None)):
+                        data_agendamento_date = a.data_agendamento.date()
+                    else:
+                        # Tipo não reconhecido, pular
+                        continue
+                    
+                    # Verificar se está no período (garantir que ambos são date)
+                    if isinstance(data_agendamento_date, date) and isinstance(data_inicial, date) and isinstance(data_final, date):
+                        if data_inicial <= data_agendamento_date <= data_final:
+                            agendamentos_periodo.append(a)
+                except (AttributeError, TypeError, ValueError) as e:
+                    # Se houver erro na conversão, pular este agendamento
+                    continue
             
             # Atualizar estatísticas gerais
             self.clientes_total_label.config(text=str(len([c for c in self.clientes if c.ativo])))
@@ -306,16 +336,27 @@ class RelatoriosWindow:
             self.update_services_report(agendamentos_periodo)
             self.update_employees_report(agendamentos_periodo)
             
-        except ValueError:
-            messagebox.showerror("Erro", "Formato de data inválido. Use DD/MM/AAAA")
+        except ValueError as e:
+            messagebox.showerror("Erro", f"Formato de data inválido. Use DD/MM/AAAA\n{str(e)}")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao atualizar estatísticas: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def update_services_report(self, agendamentos_periodo):
         """Atualiza relatório de serviços"""
         # Limpar lista
         for item in self.services_tree.get_children():
             self.services_tree.delete(item)
+        
+        if not agendamentos_periodo:
+            # Se não houver agendamentos, mostrar mensagem
+            self.services_tree.insert('', 'end', values=(
+                "Nenhum agendamento concluído no período",
+                "0",
+                "R$ 0,00"
+            ))
+            return
         
         # Contar serviços
         servico_count = defaultdict(int)
@@ -344,6 +385,15 @@ class RelatoriosWindow:
         # Limpar lista
         for item in self.employees_tree.get_children():
             self.employees_tree.delete(item)
+        
+        if not agendamentos_periodo:
+            # Se não houver agendamentos, mostrar mensagem
+            self.employees_tree.insert('', 'end', values=(
+                "Nenhum agendamento concluído no período",
+                "0",
+                "R$ 0,00"
+            ))
+            return
         
         # Contar funcionários
         funcionario_count = defaultdict(int)
@@ -463,10 +513,11 @@ class RelatoriosWindow:
                                     self.agendamentos.append(agendamento)
                 self.update_statistics()
         
+        # Força recarregamento dos dados do arquivo
         self.data_manager.load_clientes(on_clientes_loaded)
         self.data_manager.load_funcionarios(on_funcionarios_loaded)
         self.data_manager.load_servicos(on_servicos_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=True)
     
     def run(self):
         """Executa a janela"""
@@ -485,7 +536,6 @@ class RelatoriosWidget:
         self.data_manager = get_data_manager()
         self.create_widget()
         self.load_data_from_files()
-        self.update_statistics()
     
     def create_widget(self):
         """Cria o widget de relatórios"""
@@ -534,21 +584,24 @@ class RelatoriosWidget:
         
         # Período
         ttk.Label(filters_content, text="Período:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10), pady=5)
-        self.period_var = tk.StringVar(value="Este Mês")
+        self.period_var = tk.StringVar(value="Este Ano")
         self.period_combo = ttk.Combobox(filters_content, textvariable=self.period_var, width=15, font=('Arial', 10), state='readonly')
         self.period_combo['values'] = ('Hoje', 'Esta Semana', 'Este Mês', 'Últimos 3 Meses', 'Este Ano', 'Personalizado')
         self.period_combo.grid(row=0, column=1, sticky=tk.W, padx=(0, 20), pady=5)
         self.period_combo.bind('<<ComboboxSelected>>', self.on_period_change)
         
-        # Data inicial
+        # Data inicial (padrão: início do ano para incluir mais agendamentos)
+        hoje = datetime.now().date()
+        inicio_ano = hoje.replace(month=1, day=1)
         ttk.Label(filters_content, text="Data Inicial:").grid(row=0, column=2, sticky=tk.W, padx=(0, 10), pady=5)
-        self.data_inicial_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
+        self.data_inicial_var = tk.StringVar(value=inicio_ano.strftime("%d/%m/%Y"))
         self.data_inicial_entry = ttk.Entry(filters_content, textvariable=self.data_inicial_var, width=12, font=('Arial', 10))
         self.data_inicial_entry.grid(row=0, column=3, sticky=tk.W, padx=(0, 20), pady=5)
         
-        # Data final
+        # Data final (padrão: fim do ano)
+        fim_ano = hoje.replace(month=12, day=31)
         ttk.Label(filters_content, text="Data Final:").grid(row=0, column=4, sticky=tk.W, padx=(0, 10), pady=5)
-        self.data_final_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
+        self.data_final_var = tk.StringVar(value=fim_ano.strftime("%d/%m/%Y"))
         self.data_final_entry = ttk.Entry(filters_content, textvariable=self.data_final_var, width=12, font=('Arial', 10))
         self.data_final_entry.grid(row=0, column=5, sticky=tk.W, padx=(0, 20), pady=5)
         
@@ -741,6 +794,9 @@ class RelatoriosWidget:
             inicio_ano = hoje.replace(month=1, day=1)
             self.data_inicial_var.set(inicio_ano.strftime("%d/%m/%Y"))
             self.data_final_var.set(hoje.strftime("%d/%m/%Y"))
+        
+        # Atualizar estatísticas após mudar o período
+        self.update_statistics()
     
     def update_statistics(self):
         """Atualiza as estatísticas"""
@@ -749,11 +805,37 @@ class RelatoriosWidget:
             data_inicial = datetime.strptime(self.data_inicial_var.get(), "%d/%m/%Y").date()
             data_final = datetime.strptime(self.data_final_var.get(), "%d/%m/%Y").date()
             
-            # Filtrar agendamentos do período
-            agendamentos_periodo = [
-                a for a in self.agendamentos 
-                if a.data_agendamento and data_inicial <= a.data_agendamento <= data_final
-            ]
+            # Filtrar agendamentos do período (apenas concluídos para relatórios)
+            agendamentos_periodo = []
+            for a in self.agendamentos:
+                # Verificar status
+                if a.status != 'concluido':
+                    continue
+                
+                # Verificar se tem data_agendamento
+                if not a.data_agendamento:
+                    continue
+                
+                # Converter data_agendamento para date se for datetime
+                try:
+                    # Normalizar data_agendamento para date
+                    if isinstance(a.data_agendamento, datetime):
+                        data_agendamento_date = a.data_agendamento.date()
+                    elif isinstance(a.data_agendamento, date):
+                        data_agendamento_date = a.data_agendamento
+                    elif hasattr(a.data_agendamento, 'date') and callable(getattr(a.data_agendamento, 'date', None)):
+                        data_agendamento_date = a.data_agendamento.date()
+                    else:
+                        # Tipo não reconhecido, pular
+                        continue
+                    
+                    # Verificar se está no período (garantir que ambos são date)
+                    if isinstance(data_agendamento_date, date) and isinstance(data_inicial, date) and isinstance(data_final, date):
+                        if data_inicial <= data_agendamento_date <= data_final:
+                            agendamentos_periodo.append(a)
+                except (AttributeError, TypeError, ValueError) as e:
+                    # Se houver erro na conversão, pular este agendamento
+                    continue
             
             # Atualizar estatísticas gerais
             self.clientes_total_label.config(text=str(len([c for c in self.clientes if c.ativo])))
@@ -768,16 +850,27 @@ class RelatoriosWidget:
             self.update_services_report(agendamentos_periodo)
             self.update_employees_report(agendamentos_periodo)
             
-        except ValueError:
-            messagebox.showerror("Erro", "Formato de data inválido. Use DD/MM/AAAA")
+        except ValueError as e:
+            messagebox.showerror("Erro", f"Formato de data inválido. Use DD/MM/AAAA\n{str(e)}")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao atualizar estatísticas: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def update_services_report(self, agendamentos_periodo):
         """Atualiza relatório de serviços"""
         # Limpar lista
         for item in self.services_tree.get_children():
             self.services_tree.delete(item)
+        
+        if not agendamentos_periodo:
+            # Se não houver agendamentos, mostrar mensagem
+            self.services_tree.insert('', 'end', values=(
+                "Nenhum agendamento concluído no período",
+                "0",
+                "R$ 0,00"
+            ))
+            return
         
         # Contar serviços
         servico_count = defaultdict(int)
@@ -806,6 +899,15 @@ class RelatoriosWidget:
         # Limpar lista
         for item in self.employees_tree.get_children():
             self.employees_tree.delete(item)
+        
+        if not agendamentos_periodo:
+            # Se não houver agendamentos, mostrar mensagem
+            self.employees_tree.insert('', 'end', values=(
+                "Nenhum agendamento concluído no período",
+                "0",
+                "R$ 0,00"
+            ))
+            return
         
         # Contar funcionários
         funcionario_count = defaultdict(int)
@@ -900,32 +1002,11 @@ class RelatoriosWidget:
         def check_all_loaded():
             loaded_count[0] += 1
             if loaded_count[0] == 4:
-                if not self.agendamentos:
-                    hoje = datetime.now().date()
-                    for i in range(30):
-                        data = hoje - timedelta(days=i)
-                        if i < 5:
-                            for j in range(3):
-                                cliente_id = (i + j) % len(self.clientes) + 1 if self.clientes else 1
-                                funcionario_id = (i + j) % len(self.funcionarios) + 1 if self.funcionarios else 1
-                                servico_id = (i + j) % len(self.servicos) + 1 if self.servicos else 1
-                                servico = next((s for s in self.servicos if s.id == servico_id), None)
-                                if servico:
-                                    agendamento = Agendamento(
-                                        id=len(self.agendamentos) + 1,
-                                        cliente_id=cliente_id,
-                                        funcionario_id=funcionario_id,
-                                        servico_id=servico_id,
-                                        data_agendamento=data,
-                                        horario_inicio=datetime.combine(data, datetime.min.time().replace(hour=9 + j)),
-                                        horario_fim=datetime.combine(data, datetime.min.time().replace(hour=9 + j, minute=30)),
-                                        status="concluido",
-                                        valor_total=servico.preco
-                                    )
-                                    self.agendamentos.append(agendamento)
+                # Atualizar estatísticas após carregar todos os dados
                 self.update_statistics()
         
+        # Força recarregamento dos dados do arquivo
         self.data_manager.load_clientes(on_clientes_loaded)
         self.data_manager.load_funcionarios(on_funcionarios_loaded)
         self.data_manager.load_servicos(on_servicos_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=True)

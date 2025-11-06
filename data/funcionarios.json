@@ -37,7 +37,7 @@
     "cargo": "Gerente",
     "data_admissao": "2025-11-04T18:38:23.213873",
     "salario": 3500.0,
-    "ativo": true
+    "ativo": false
   },
   {
     "id": 5,

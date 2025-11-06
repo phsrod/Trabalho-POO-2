@@ -37,15 +37,33 @@ class Agendamento:
         """Cria um objeto Agendamento a partir de um dicionário"""
         data_agendamento = None
         if data.get('data_agendamento'):
-            data_agendamento = datetime.fromisoformat(data['data_agendamento'])
+            try:
+                # Tenta parsear como datetime completo
+                data_agendamento = datetime.fromisoformat(data['data_agendamento'])
+            except (ValueError, TypeError):
+                try:
+                    # Tenta parsear como apenas data (YYYY-MM-DD)
+                    from datetime import date as date_type
+                    date_str = data['data_agendamento']
+                    if isinstance(date_str, str) and 'T' not in date_str:
+                        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        data_agendamento = datetime.combine(date_obj, datetime.min.time())
+                except (ValueError, TypeError):
+                    pass
         
         horario_inicio = None
         if data.get('horario_inicio'):
-            horario_inicio = datetime.fromisoformat(data['horario_inicio'])
+            try:
+                horario_inicio = datetime.fromisoformat(data['horario_inicio'])
+            except (ValueError, TypeError):
+                pass
         
         horario_fim = None
         if data.get('horario_fim'):
-            horario_fim = datetime.fromisoformat(data['horario_fim'])
+            try:
+                horario_fim = datetime.fromisoformat(data['horario_fim'])
+            except (ValueError, TypeError):
+                pass
         
         return cls(
             id=data.get('id'),

@@ -8,7 +8,7 @@ import json
 import os
 import threading
 from typing import List, Optional, Callable
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 from models import Cliente, Funcionario, Servico, Agendamento
 
@@ -40,6 +40,51 @@ class DataManager:
         self._servicos: Optional[List[Servico]] = None
         self._agendamentos: Optional[List[Agendamento]] = None
     
+    def _safe_load_json(self, file_path: Path) -> list:
+        """
+        Carrega JSON de forma segura, tratando arquivos vazios ou corrompidos
+        
+        Args:
+            file_path: Caminho do arquivo JSON
+            
+        Returns:
+            Lista de dados (vazia se arquivo não existe, está vazio ou corrompido)
+        """
+        if not file_path.exists():
+            return []
+        
+        # Verificar se o arquivo está vazio
+        try:
+            if file_path.stat().st_size == 0:
+                print(f"Arquivo {file_path.name} está vazio. Inicializando como lista vazia.")
+                return []
+        except OSError:
+            # Se não conseguir verificar o tamanho, tenta ler mesmo assim
+            pass
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+                # Verificar se o conteúdo está vazio após remover espaços
+                if not content:
+                    print(f"Arquivo {file_path.name} está vazio. Inicializando como lista vazia.")
+                    return []
+                
+                data = json.loads(content)
+                # Garantir que retorna uma lista
+                if not isinstance(data, list):
+                    print(f"Arquivo {file_path.name} não contém uma lista válida. Inicializando como lista vazia.")
+                    return []
+                
+                return data
+        except json.JSONDecodeError as e:
+            print(f"Erro ao decodificar JSON do arquivo {file_path.name}: {e}")
+            print(f"Arquivo corrompido. Inicializando como lista vazia.")
+            return []
+        except Exception as e:
+            print(f"Erro ao ler arquivo {file_path.name}: {e}")
+            return []
+    
     def load_clientes(self, callback: Optional[Callable] = None) -> List[Cliente]:
         """
         Carrega clientes do arquivo em thread separada
@@ -58,12 +103,8 @@ class DataManager:
                             callback(self._clientes)
                         return self._clientes
                     
-                    if self.clientes_file.exists():
-                        with open(self.clientes_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            self._clientes = [Cliente.from_dict(item) for item in data]
-                    else:
-                        self._clientes = []
+                    data = self._safe_load_json(self.clientes_file)
+                    self._clientes = [Cliente.from_dict(item) for item in data]
                     
                     if callback:
                         callback(self._clientes)
@@ -88,7 +129,7 @@ class DataManager:
     
     def save_clientes(self, clientes: List[Cliente], callback: Optional[Callable] = None):
         """
-        Salva clientes no arquivo em thread separada
+        Salva clientes no arquivo em thread separada usando escrita atômica
         
         Args:
             clientes: Lista de clientes para salvar
@@ -98,11 +139,24 @@ class DataManager:
             try:
                 with self.lock:
                     data = [cliente.to_dict() for cliente in clientes]
-                    with open(self.clientes_file, 'w', encoding='utf-8') as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
-                    self._clientes = clientes
-                    if callback:
-                        callback(True)
+                    # Usar arquivo temporário para escrita atômica
+                    temp_file = self.clientes_file.with_suffix('.tmp')
+                    try:
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, indent=2, ensure_ascii=False)
+                        # Renomear arquivo temporário para o arquivo final (operação atômica)
+                        temp_file.replace(self.clientes_file)
+                        self._clientes = clientes
+                        if callback:
+                            callback(True)
+                    except Exception as e:
+                        # Se houver erro, tentar remover arquivo temporário
+                        if temp_file.exists():
+                            try:
+                                temp_file.unlink()
+                            except:
+                                pass
+                        raise e
             except Exception as e:
                 print(f"Erro ao salvar clientes: {e}")
                 if callback:
@@ -121,12 +175,8 @@ class DataManager:
                             callback(self._funcionarios)
                         return self._funcionarios
                     
-                    if self.funcionarios_file.exists():
-                        with open(self.funcionarios_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            self._funcionarios = [Funcionario.from_dict(item) for item in data]
-                    else:
-                        self._funcionarios = []
+                    data = self._safe_load_json(self.funcionarios_file)
+                    self._funcionarios = [Funcionario.from_dict(item) for item in data]
                     
                     if callback:
                         callback(self._funcionarios)
@@ -153,11 +203,24 @@ class DataManager:
             try:
                 with self.lock:
                     data = [funcionario.to_dict() for funcionario in funcionarios]
-                    with open(self.funcionarios_file, 'w', encoding='utf-8') as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
-                    self._funcionarios = funcionarios
-                    if callback:
-                        callback(True)
+                    # Usar arquivo temporário para escrita atômica
+                    temp_file = self.funcionarios_file.with_suffix('.tmp')
+                    try:
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, indent=2, ensure_ascii=False)
+                        # Renomear arquivo temporário para o arquivo final (operação atômica)
+                        temp_file.replace(self.funcionarios_file)
+                        self._funcionarios = funcionarios
+                        if callback:
+                            callback(True)
+                    except Exception as e:
+                        # Se houver erro, tentar remover arquivo temporário
+                        if temp_file.exists():
+                            try:
+                                temp_file.unlink()
+                            except:
+                                pass
+                        raise e
             except Exception as e:
                 print(f"Erro ao salvar funcionários: {e}")
                 if callback:
@@ -176,12 +239,8 @@ class DataManager:
                             callback(self._servicos)
                         return self._servicos
                     
-                    if self.servicos_file.exists():
-                        with open(self.servicos_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            self._servicos = [Servico.from_dict(item) for item in data]
-                    else:
-                        self._servicos = []
+                    data = self._safe_load_json(self.servicos_file)
+                    self._servicos = [Servico.from_dict(item) for item in data]
                     
                     if callback:
                         callback(self._servicos)
@@ -208,11 +267,24 @@ class DataManager:
             try:
                 with self.lock:
                     data = [servico.to_dict() for servico in servicos]
-                    with open(self.servicos_file, 'w', encoding='utf-8') as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
-                    self._servicos = servicos
-                    if callback:
-                        callback(True)
+                    # Usar arquivo temporário para escrita atômica
+                    temp_file = self.servicos_file.with_suffix('.tmp')
+                    try:
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, indent=2, ensure_ascii=False)
+                        # Renomear arquivo temporário para o arquivo final (operação atômica)
+                        temp_file.replace(self.servicos_file)
+                        self._servicos = servicos
+                        if callback:
+                            callback(True)
+                    except Exception as e:
+                        # Se houver erro, tentar remover arquivo temporário
+                        if temp_file.exists():
+                            try:
+                                temp_file.unlink()
+                            except:
+                                pass
+                        raise e
             except Exception as e:
                 print(f"Erro ao salvar serviços: {e}")
                 if callback:
@@ -221,55 +293,71 @@ class DataManager:
         thread = threading.Thread(target=_save, daemon=True)
         thread.start()
     
-    def load_agendamentos(self, callback: Optional[Callable] = None) -> List[Agendamento]:
+    def load_agendamentos(self, callback: Optional[Callable] = None, force_reload: bool = False) -> List[Agendamento]:
         """Carrega agendamentos do arquivo em thread separada"""
         def _load():
             try:
                 with self.lock:
-                    if self._agendamentos is not None:
+                    # Se force_reload for True, ignora o cache
+                    if self._agendamentos is not None and not force_reload:
                         if callback:
                             callback(self._agendamentos)
                         return self._agendamentos
                     
-                    if self.agendamentos_file.exists():
-                        with open(self.agendamentos_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            self._agendamentos = [Agendamento.from_dict(item) for item in data]
-                    else:
-                        self._agendamentos = []
+                    data = self._safe_load_json(self.agendamentos_file)
+                    self._agendamentos = [Agendamento.from_dict(item) for item in data]
                     
                     if callback:
                         callback(self._agendamentos)
                     return self._agendamentos
             except Exception as e:
                 print(f"Erro ao carregar agendamentos: {e}")
+                import traceback
+                traceback.print_exc()
                 self._agendamentos = []
                 if callback:
                     callback([])
                 return []
         
-        if self._agendamentos is not None:
-            if callback:
-                callback(self._agendamentos)
-            return self._agendamentos
+        # Sempre carrega do arquivo na primeira vez
+        if self._agendamentos is None or force_reload:
+            thread = threading.Thread(target=_load, daemon=True)
+            thread.start()
+            return []
         
-        thread = threading.Thread(target=_load, daemon=True)
-        thread.start()
-        return []
+        if callback:
+            callback(self._agendamentos)
+        return self._agendamentos
     
     def save_agendamentos(self, agendamentos: List[Agendamento], callback: Optional[Callable] = None):
-        """Salva agendamentos no arquivo em thread separada"""
+        """Salva agendamentos no arquivo em thread separada usando escrita atômica"""
         def _save():
             try:
                 with self.lock:
                     data = [agendamento.to_dict() for agendamento in agendamentos]
-                    with open(self.agendamentos_file, 'w', encoding='utf-8') as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
-                    self._agendamentos = agendamentos
-                    if callback:
-                        callback(True)
+                    # Usar arquivo temporário para escrita atômica
+                    temp_file = self.agendamentos_file.with_suffix('.tmp')
+                    try:
+                        with open(temp_file, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, indent=2, ensure_ascii=False)
+                        # Renomear arquivo temporário para o arquivo final (operação atômica)
+                        temp_file.replace(self.agendamentos_file)
+                        # Atualiza o cache com os novos dados
+                        self._agendamentos = agendamentos
+                        if callback:
+                            callback(True)
+                    except Exception as e:
+                        # Se houver erro, tentar remover arquivo temporário
+                        if temp_file.exists():
+                            try:
+                                temp_file.unlink()
+                            except:
+                                pass
+                        raise e
             except Exception as e:
                 print(f"Erro ao salvar agendamentos: {e}")
+                import traceback
+                traceback.print_exc()
                 if callback:
                     callback(False)
         
@@ -301,11 +389,36 @@ class DataManager:
         def _export():
             try:
                 with self.lock:
-                    # Filtrar agendamentos do período
-                    agendamentos_periodo = [
-                        a for a in agendamentos
-                        if a.data_agendamento and data_inicial.date() <= a.data_agendamento <= data_final.date()
-                    ]
+                    # Filtrar agendamentos do período (apenas concluídos para relatórios)
+                    agendamentos_periodo = []
+                    data_inicial_date = data_inicial.date() if isinstance(data_inicial, datetime) else data_inicial
+                    data_final_date = data_final.date() if isinstance(data_final, datetime) else data_final
+                    
+                    for a in agendamentos:
+                        # Verificar status
+                        if a.status != 'concluido':
+                            continue
+                        
+                        # Verificar se tem data_agendamento
+                        if not a.data_agendamento:
+                            continue
+                        
+                        # Normalizar data_agendamento para date
+                        try:
+                            if isinstance(a.data_agendamento, datetime):
+                                data_agendamento_date = a.data_agendamento.date()
+                            elif isinstance(a.data_agendamento, date):
+                                data_agendamento_date = a.data_agendamento
+                            else:
+                                continue
+                            
+                            # Verificar se está no período (garantir que ambos são date)
+                            if isinstance(data_agendamento_date, date) and isinstance(data_inicial_date, date) and isinstance(data_final_date, date):
+                                if data_inicial_date <= data_agendamento_date <= data_final_date:
+                                    agendamentos_periodo.append(a)
+                        except (AttributeError, TypeError, ValueError):
+                            # Se houver erro na conversão, pular este agendamento
+                            continue
                     
                     # Calcular estatísticas
                     receita_total = sum(float(a.valor_total) for a in agendamentos_periodo)
