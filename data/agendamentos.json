@@ -31,7 +31,7 @@
     "data_agendamento": "2025-11-06T00:00:00",
     "horario_inicio": "2025-11-06T08:30:00",
     "horario_fim": "2025-11-06T09:15:00",
-    "status": "concluido",
+    "status": "cancelado",
     "observacoes": "teste 3",
     "valor_total": 35.0
   },

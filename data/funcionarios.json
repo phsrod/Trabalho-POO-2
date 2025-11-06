@@ -17,7 +17,7 @@
     "cargo": "Barbeira",
     "data_admissao": "2025-11-04T18:38:23.213869",
     "salario": 2500.0,
-    "ativo": false
+    "ativo": true
   },
   {
     "id": 3,

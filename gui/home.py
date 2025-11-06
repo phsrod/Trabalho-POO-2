@@ -1,13 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable, Optional
-import datetime
+from datetime import datetime, date
 from .clientes import ClientesWidget
 from .servicos import ServicosWidget
 from .funcionarios import FuncionariosWidget
 from .agendamentos import AgendamentosWidget
 from .relatorios import RelatoriosWidget
-from .styles import StyleManager  # Importando o StyleManager
+from .styles import StyleManager
+from repositories import get_data_manager
+from models import Cliente, Funcionario, Agendamento
 
 class HomeWindow:
     """Janela principal (dashboard) da aplicação administrativa"""
@@ -21,11 +23,19 @@ class HomeWindow:
         self.canvas = None
         self.scrollbar = None
         self.close_button = None
+        
+        # Data manager para carregar dados
+        self.data_manager = get_data_manager()
+        
+        # Labels dos cards de estatísticas (serão criados em create_stats_cards)
+        self.stats_labels = {}
 
         # Configura os estilos globais
         StyleManager.configure_styles()
         
         self.create_window()
+        # Carregar dados do dashboard após criar a janela
+        self.load_dashboard_data()
     
     def create_window(self):
         """Cria a janela principal"""
@@ -90,7 +100,7 @@ class HomeWindow:
 
     def update_time(self):
         """Atualiza a hora em tempo real no label"""
-        agora = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         self.user_info.config(text="Administrador | " + agora)
         self.window.after(1000, self.update_time)  # atualiza a cada 1 segundo
 
@@ -100,18 +110,21 @@ class HomeWindow:
         stats_frame.pack(fill=tk.X, pady=(0, 20))
         
         cards_info = [
-            ("Total de Clientes", "0"),
-            ("Agendamentos Hoje", "0"),
-            ("Receita Mensal", "R$ 0,00"),
-            ("Funcionários Ativos", "0")
+            ("Total de Clientes", "clientes"),
+            ("Agendamentos Hoje", "agendamentos_hoje"),
+            ("Receita Mensal", "receita_mensal"),
+            ("Funcionários Ativos", "funcionarios")
         ]
         
-        for i, (title, value) in enumerate(cards_info):
+        for i, (title, key) in enumerate(cards_info):
             card = ttk.Frame(stats_frame, style='Card.TFrame')
             card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5 if i>0 else 0, 5))
             
             ttk.Label(card, text=title, style='Title.TLabel').pack(pady=(15, 5))
-            ttk.Label(card, text=value, style='Stat.TLabel').pack(pady=(0, 15))
+            # Criar label que será atualizado
+            value_label = ttk.Label(card, text="Carregando...", style='Stat.TLabel')
+            value_label.pack(pady=(0, 15))
+            self.stats_labels[key] = value_label
     
     def create_navigation_menu(self, parent):
         """Cria o menu de navegação"""
@@ -229,10 +242,14 @@ class HomeWindow:
         self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.canvas.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        # Atualizar dashboard quando abrir uma seção (para refletir mudanças)
+        self.refresh_dashboard()
 
     def close_current_content(self):
         """Fecha o conteúdo atual e volta para a mensagem de boas-vindas"""
         self.show_welcome_message()
+        # Atualizar dashboard quando fechar uma seção
+        self.refresh_dashboard()
     
     def open_clients(self):
         try:
@@ -273,6 +290,110 @@ class HomeWindow:
             if self.root:
                 self.root.quit()
                 self.root.destroy()
+    
+    def load_dashboard_data(self):
+        """Carrega os dados do dashboard de forma assíncrona"""
+        def on_clientes_loaded(clientes):
+            self.clientes = clientes
+            self.update_clientes_count()
+        
+        def on_funcionarios_loaded(funcionarios):
+            self.funcionarios = funcionarios
+            self.update_funcionarios_count()
+        
+        def on_agendamentos_loaded(agendamentos):
+            self.agendamentos = agendamentos
+            self.update_agendamentos_hoje()
+            self.update_receita_mensal()
+        
+        # Inicializar listas vazias
+        self.clientes = []
+        self.funcionarios = []
+        self.agendamentos = []
+        
+        # Carregar dados usando threads
+        self.data_manager.load_clientes(on_clientes_loaded)
+        self.data_manager.load_funcionarios(on_funcionarios_loaded)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=True)
+    
+    def refresh_dashboard(self):
+        """Atualiza os dados do dashboard"""
+        self.load_dashboard_data()
+    
+    def update_clientes_count(self):
+        """Atualiza o contador de clientes"""
+        if 'clientes' in self.stats_labels:
+            count = len([c for c in self.clientes if c.ativo])
+            self.stats_labels['clientes'].config(text=str(count))
+    
+    def update_funcionarios_count(self):
+        """Atualiza o contador de funcionários"""
+        if 'funcionarios' in self.stats_labels:
+            count = len([f for f in self.funcionarios if f.ativo])
+            self.stats_labels['funcionarios'].config(text=str(count))
+    
+    def update_agendamentos_hoje(self):
+        """Atualiza o contador de agendamentos de hoje"""
+        if 'agendamentos_hoje' in self.stats_labels:
+            hoje = datetime.now().date()
+            count = 0
+            
+            for agendamento in self.agendamentos:
+                if not agendamento.data_agendamento:
+                    continue
+                
+                # Normalizar data_agendamento para date
+                try:
+                    if isinstance(agendamento.data_agendamento, datetime):
+                        data_agendamento_date = agendamento.data_agendamento.date()
+                    elif isinstance(agendamento.data_agendamento, date):
+                        data_agendamento_date = agendamento.data_agendamento
+                    else:
+                        continue
+                    
+                    # Contar apenas agendamentos de hoje (não cancelados)
+                    if data_agendamento_date == hoje and agendamento.status != 'cancelado':
+                        count += 1
+                except (AttributeError, TypeError, ValueError):
+                    continue
+            
+            self.stats_labels['agendamentos_hoje'].config(text=str(count))
+    
+    def update_receita_mensal(self):
+        """Atualiza a receita mensal"""
+        if 'receita_mensal' in self.stats_labels:
+            hoje = datetime.now()
+            mes_atual = hoje.month
+            ano_atual = hoje.year
+            
+            receita_total = 0.0
+            
+            for agendamento in self.agendamentos:
+                # Apenas agendamentos concluídos
+                if agendamento.status != 'concluido':
+                    continue
+                
+                if not agendamento.data_agendamento:
+                    continue
+                
+                # Normalizar data_agendamento para date
+                try:
+                    if isinstance(agendamento.data_agendamento, datetime):
+                        data_agendamento_date = agendamento.data_agendamento.date()
+                    elif isinstance(agendamento.data_agendamento, date):
+                        data_agendamento_date = agendamento.data_agendamento
+                    else:
+                        continue
+                    
+                    # Verificar se é do mês atual
+                    if (isinstance(data_agendamento_date, date) and 
+                        data_agendamento_date.month == mes_atual and 
+                        data_agendamento_date.year == ano_atual):
+                        receita_total += float(agendamento.valor_total)
+                except (AttributeError, TypeError, ValueError):
+                    continue
+            
+            self.stats_labels['receita_mensal'].config(text=f"R$ {receita_total:.2f}")
     
     def run(self):
         # O método run não precisa fazer nada aqui
