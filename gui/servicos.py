@@ -298,7 +298,12 @@ class ServicosWindow:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o serviço {servico.nome}?"):
                     servico.ativo = False
                     # Salvar no arquivo após exclusão
-                    self.data_manager.save_servicos(self.servicos)
+                    def on_save_complete(success):
+                        if success and self.dashboard_callback:
+                            # Notificar dashboard sobre mudança nos dados
+                            self.dashboard_callback()
+                    
+                    self.data_manager.save_servicos(self.servicos, on_save_complete)
                     self.refresh_servicos_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Serviço excluído com sucesso!")
@@ -354,7 +359,12 @@ class ServicosWindow:
             messagebox.showinfo("Sucesso", "Serviço cadastrado com sucesso!")
         
         # Salvar no arquivo usando thread
-        self.data_manager.save_servicos(self.servicos)
+        def on_save_complete(success):
+            if success and self.dashboard_callback:
+                # Notificar dashboard sobre mudança nos dados
+                self.dashboard_callback()
+        
+        self.data_manager.save_servicos(self.servicos, on_save_complete)
         self.refresh_servicos_list()
         self.clear_form()
     
@@ -383,11 +393,12 @@ class ServicosWindow:
 class ServicosWidget:
     """Widget de gerenciamento de serviços para uso embutido"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, dashboard_callback=None):
         self.parent = parent
         self.servicos: List[Servico] = []
         self.current_servico: Optional[Servico] = None
         self.data_manager = get_data_manager()
+        self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.create_widget()
         self.load_data_from_file()
         self.refresh_servicos_list()
@@ -680,7 +691,12 @@ class ServicosWidget:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o serviço {servico.nome}?"):
                     servico.ativo = False
                     # Salvar no arquivo após exclusão
-                    self.data_manager.save_servicos(self.servicos)
+                    def on_save_complete(success):
+                        if success and self.dashboard_callback:
+                            # Notificar dashboard sobre mudança nos dados
+                            self.dashboard_callback()
+                    
+                    self.data_manager.save_servicos(self.servicos, on_save_complete)
                     self.refresh_servicos_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Serviço excluído com sucesso!")
@@ -736,7 +752,12 @@ class ServicosWidget:
             messagebox.showinfo("Sucesso", "Serviço cadastrado com sucesso!")
         
         # Salvar no arquivo usando thread
-        self.data_manager.save_servicos(self.servicos)
+        def on_save_complete(success):
+            if success and self.dashboard_callback:
+                # Notificar dashboard sobre mudança nos dados
+                self.dashboard_callback()
+        
+        self.data_manager.save_servicos(self.servicos, on_save_complete)
         self.refresh_servicos_list()
         self.clear_form()
     

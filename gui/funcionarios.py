@@ -316,7 +316,12 @@ class FuncionariosWindow:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
                     funcionario.ativo = False
                     # Salvar no arquivo após exclusão
-                    self.data_manager.save_funcionarios(self.funcionarios)
+                    def on_save_complete(success):
+                        if success and self.dashboard_callback:
+                            # Notificar dashboard sobre mudança nos dados
+                            self.dashboard_callback()
+                    
+                    self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
                     self.refresh_funcionarios_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Funcionário excluído com sucesso!")
@@ -368,7 +373,12 @@ class FuncionariosWindow:
             messagebox.showinfo("Sucesso", "Funcionário cadastrado com sucesso!")
         
         # Salvar no arquivo usando thread
-        self.data_manager.save_funcionarios(self.funcionarios)
+        def on_save_complete(success):
+            if success and self.dashboard_callback:
+                # Notificar dashboard sobre mudança nos dados
+                self.dashboard_callback()
+        
+        self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
         self.refresh_funcionarios_list()
         self.clear_form()
     
@@ -399,11 +409,12 @@ class FuncionariosWindow:
 class FuncionariosWidget:
     """Widget de gerenciamento de funcionários para uso embutido"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, dashboard_callback=None):
         self.parent = parent
         self.funcionarios: List[Funcionario] = []
         self.current_funcionario: Optional[Funcionario] = None
         self.data_manager = get_data_manager()
+        self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.create_widget()
         self.load_data_from_file()
         self.refresh_funcionarios_list()
@@ -714,7 +725,12 @@ class FuncionariosWidget:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
                     funcionario.ativo = False
                     # Salvar no arquivo após exclusão
-                    self.data_manager.save_funcionarios(self.funcionarios)
+                    def on_save_complete(success):
+                        if success and self.dashboard_callback:
+                            # Notificar dashboard sobre mudança nos dados
+                            self.dashboard_callback()
+                    
+                    self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
                     self.refresh_funcionarios_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Funcionário excluído com sucesso!")
@@ -766,7 +782,12 @@ class FuncionariosWidget:
             messagebox.showinfo("Sucesso", "Funcionário cadastrado com sucesso!")
         
         # Salvar no arquivo usando thread
-        self.data_manager.save_funcionarios(self.funcionarios)
+        def on_save_complete(success):
+            if success and self.dashboard_callback:
+                # Notificar dashboard sobre mudança nos dados
+                self.dashboard_callback()
+        
+        self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
         self.refresh_funcionarios_list()
         self.clear_form()
     

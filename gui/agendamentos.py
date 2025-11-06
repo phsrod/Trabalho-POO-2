@@ -365,13 +365,14 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
 class AgendamentosWidget:
     """Widget de visualização de agendamentos para uso embutido"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, dashboard_callback=None):
         self.parent = parent
         self.agendamentos: List[Agendamento] = []
         self.clientes: List[Cliente] = []
         self.funcionarios: List[Funcionario] = []
         self.servicos: List[Servico] = []
         self.data_manager = get_data_manager()
+        self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.create_widget()
         self.load_data_from_files()
     
@@ -701,6 +702,9 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
             if success:
                 self.refresh_agendamentos_list()
                 messagebox.showinfo("Sucesso", "Agendamento criado com sucesso!")
+                # Notificar dashboard sobre mudança nos dados
+                if self.dashboard_callback:
+                    self.dashboard_callback()
             else:
                 messagebox.showerror("Erro", "Erro ao salvar agendamento.")
         
@@ -748,6 +752,9 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
             if success:
                 self.refresh_agendamentos_list()
                 messagebox.showinfo("Sucesso", "Agendamento atualizado com sucesso!")
+                # Notificar dashboard sobre mudança nos dados
+                if self.dashboard_callback:
+                    self.dashboard_callback()
             else:
                 messagebox.showerror("Erro", "Erro ao salvar agendamento.")
         

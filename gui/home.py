@@ -29,6 +29,10 @@ class HomeWindow:
         
         # Labels dos cards de estatísticas (serão criados em create_stats_cards)
         self.stats_labels = {}
+        
+        # Flag para controlar atualização periódica
+        self.auto_refresh_enabled = True
+        self.auto_refresh_interval = 30000  # 30 segundos em milissegundos
 
         # Configura os estilos globais
         StyleManager.configure_styles()
@@ -36,6 +40,8 @@ class HomeWindow:
         self.create_window()
         # Carregar dados do dashboard após criar a janela
         self.load_dashboard_data()
+        # Iniciar atualização periódica automática
+        self.start_auto_refresh()
     
     def create_window(self):
         """Cria a janela principal"""
@@ -238,7 +244,8 @@ class HomeWindow:
         self.clear_content()
         self.content_title.config(text=title)
         self.close_button.pack(side=tk.RIGHT)
-        self.current_widget = widget_class(self.scrollable_frame)
+        # Passar referência do dashboard para o widget poder notificar mudanças
+        self.current_widget = widget_class(self.scrollable_frame, dashboard_callback=self.notify_data_changed)
         self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self.canvas.update_idletasks()
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -319,6 +326,18 @@ class HomeWindow:
     def refresh_dashboard(self):
         """Atualiza os dados do dashboard"""
         self.load_dashboard_data()
+    
+    def start_auto_refresh(self):
+        """Inicia a atualização automática periódica do dashboard"""
+        if self.auto_refresh_enabled and self.window:
+            self.refresh_dashboard()
+            # Agendar próxima atualização
+            self.window.after(self.auto_refresh_interval, self.start_auto_refresh)
+    
+    def notify_data_changed(self):
+        """Método público para ser chamado quando dados são alterados"""
+        # Atualizar dashboard imediatamente quando dados são alterados
+        self.refresh_dashboard()
     
     def update_clientes_count(self):
         """Atualiza o contador de clientes"""

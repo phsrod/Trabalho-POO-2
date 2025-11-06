@@ -305,7 +305,12 @@ class ClientesWindow:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
                     cliente.ativo = False
                     # Salvar no arquivo após exclusão
-                    self.data_manager.save_clientes(self.clientes)
+                    def on_save_complete(success):
+                        if success and self.dashboard_callback:
+                            # Notificar dashboard sobre mudança nos dados
+                            self.dashboard_callback()
+                    
+                    self.data_manager.save_clientes(self.clientes, on_save_complete)
                     self.refresh_clientes_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!")
@@ -344,7 +349,12 @@ class ClientesWindow:
             messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
         
         # Salvar no arquivo usando thread
-        self.data_manager.save_clientes(self.clientes)
+        def on_save_complete(success):
+            if success and self.dashboard_callback:
+                # Notificar dashboard sobre mudança nos dados
+                self.dashboard_callback()
+        
+        self.data_manager.save_clientes(self.clientes, on_save_complete)
         self.refresh_clientes_list()
         self.clear_form()
     
@@ -374,11 +384,12 @@ class ClientesWindow:
 class ClientesWidget:
     """Widget de gerenciamento de clientes para uso embutido"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, dashboard_callback=None):
         self.parent = parent
         self.clientes: List[Cliente] = []
         self.current_cliente: Optional[Cliente] = None
         self.data_manager = get_data_manager()
+        self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.create_widget()
         self.load_data_from_file()
         self.refresh_clientes_list()
@@ -678,7 +689,12 @@ class ClientesWidget:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
                     cliente.ativo = False
                     # Salvar no arquivo após exclusão
-                    self.data_manager.save_clientes(self.clientes)
+                    def on_save_complete(success):
+                        if success and self.dashboard_callback:
+                            # Notificar dashboard sobre mudança nos dados
+                            self.dashboard_callback()
+                    
+                    self.data_manager.save_clientes(self.clientes, on_save_complete)
                     self.refresh_clientes_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!")
@@ -717,7 +733,12 @@ class ClientesWidget:
             messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
         
         # Salvar no arquivo usando thread
-        self.data_manager.save_clientes(self.clientes)
+        def on_save_complete(success):
+            if success and self.dashboard_callback:
+                # Notificar dashboard sobre mudança nos dados
+                self.dashboard_callback()
+        
+        self.data_manager.save_clientes(self.clientes, on_save_complete)
         self.refresh_clientes_list()
         self.clear_form()
     

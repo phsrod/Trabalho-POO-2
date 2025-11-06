@@ -58,5 +58,17 @@
     "status": "concluido",
     "observacoes": "nevou",
     "valor_total": 80.0
+  },
+  {
+    "id": 6,
+    "cliente_id": 1,
+    "funcionario_id": 2,
+    "servico_id": 1,
+    "data_agendamento": "2025-12-06T00:00:00",
+    "horario_inicio": "2025-12-06T09:00:00",
+    "horario_fim": "2025-12-06T09:30:00",
+    "status": "cancelado",
+    "observacoes": "",
+    "valor_total": 25.0
   }
 ]

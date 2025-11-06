@@ -527,13 +527,14 @@ class RelatoriosWindow:
 class RelatoriosWidget:
     """Widget de relatórios e estatísticas para uso embutido"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, dashboard_callback=None):
         self.parent = parent
         self.clientes: List[Cliente] = []
         self.funcionarios: List[Funcionario] = []
         self.servicos: List[Servico] = []
         self.agendamentos: List[Agendamento] = []
         self.data_manager = get_data_manager()
+        self.dashboard_callback = dashboard_callback  # Callback opcional (não usado aqui, mas aceito para compatibilidade)
         self.create_widget()
         self.load_data_from_files()
     
