@@ -52,5 +52,14 @@
     "data_cadastro": "2025-11-06T15:13:26.428094",
     "observacoes": "gente boa dms",
     "ativo": false
+  },
+  {
+    "id": 7,
+    "nome": "França Rodrigues",
+    "telefone": "89994092969",
+    "email": "ffrodrigues@gmail.com",
+    "data_cadastro": "2025-11-06T15:56:14.858405",
+    "observacoes": "vip",
+    "ativo": true
   }
 ]

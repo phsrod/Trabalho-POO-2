@@ -4,6 +4,10 @@ from typing import List, Optional
 from models import Cliente
 from datetime import datetime
 from repositories import get_data_manager
+from .validators import (
+    bind_phone_mask, bind_email_validator, 
+    PhoneMask, EmailValidator
+)
 
 class ClientesWindow:
     """Janela de gerenciamento de clientes"""
@@ -228,9 +232,21 @@ class ClientesWindow:
         for cliente in self.clientes:
             if cliente.ativo:  # Mostrar apenas clientes ativos
                 data_cadastro = cliente.data_cadastro.strftime("%d/%m/%Y") if cliente.data_cadastro else ""
+                # Formatar telefone para exibição
+                telefone_numeros = PhoneMask.get_numbers(cliente.telefone) if cliente.telefone else ""
+                if telefone_numeros:
+                    if len(telefone_numeros) == 10:
+                        telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+                    elif len(telefone_numeros) == 11:
+                        telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+                    else:
+                        telefone_formatado = cliente.telefone
+                else:
+                    telefone_formatado = cliente.telefone if cliente.telefone else ""
+                
                 self.clientes_tree.insert('', 'end', values=(
                     cliente.nome,
-                    cliente.telefone,
+                    telefone_formatado,
                     cliente.email,
                     data_cadastro
                 ), tags=(cliente.id,))
@@ -255,10 +271,21 @@ class ClientesWindow:
         self.nome_entry.insert(0, cliente.nome)
         
         self.telefone_entry.delete(0, tk.END)
-        self.telefone_entry.insert(0, cliente.telefone)
+        # Formatar telefone ao carregar
+        telefone_numeros = PhoneMask.get_numbers(cliente.telefone) if cliente.telefone else ""
+        if telefone_numeros:
+            if len(telefone_numeros) == 10:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+            elif len(telefone_numeros) == 11:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+            else:
+                telefone_formatado = cliente.telefone
+            self.telefone_entry.insert(0, telefone_formatado)
+        else:
+            self.telefone_entry.insert(0, cliente.telefone if cliente.telefone else "")
         
         self.email_entry.delete(0, tk.END)
-        self.email_entry.insert(0, cliente.email)
+        self.email_entry.insert(0, cliente.email if cliente.email else "")
         
         data_cadastro = cliente.data_cadastro.strftime("%d/%m/%Y %H:%M") if cliente.data_cadastro else ""
         self.data_cadastro_label.config(text=data_cadastro)
@@ -320,17 +347,37 @@ class ClientesWindow:
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         telefone = self.telefone_entry.get().strip()
+        email = self.email_entry.get().strip()
         
-        if not nome or not telefone:
-            messagebox.showerror("Erro", "Nome e telefone são obrigatórios.")
+        if not nome:
+            messagebox.showerror("Erro", "Nome é obrigatório.")
+            self.nome_entry.focus()
+            return
+        
+        if not telefone:
+            messagebox.showerror("Erro", "Telefone é obrigatório.")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do telefone
+        if not PhoneMask.validate(telefone):
+            messagebox.showerror("Erro", "Telefone inválido. Use o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do email (se preenchido)
+        if email and not EmailValidator.validate(email):
+            messagebox.showerror("Erro", "Email inválido. Verifique o formato do email.")
+            self.email_entry.focus()
             return
         
         # Criar ou atualizar cliente
         if self.current_cliente:
             # Atualizar cliente existente
             self.current_cliente.nome = nome
-            self.current_cliente.telefone = telefone
-            self.current_cliente.email = self.email_entry.get().strip()
+            # Salvar telefone apenas com números
+            self.current_cliente.telefone = PhoneMask.get_numbers(telefone)
+            self.current_cliente.email = email
             self.current_cliente.observacoes = self.observacoes_text.get(1.0, tk.END).strip()
             self.current_cliente.ativo = self.ativo_var.get()
             messagebox.showinfo("Sucesso", "Cliente atualizado com sucesso!")
@@ -340,8 +387,8 @@ class ClientesWindow:
             novo_cliente = Cliente(
                 id=novo_id,
                 nome=nome,
-                telefone=telefone,
-                email=self.email_entry.get().strip(),
+                telefone=PhoneMask.get_numbers(telefone),
+                email=email,
                 observacoes=self.observacoes_text.get(1.0, tk.END).strip(),
                 ativo=self.ativo_var.get()
             )
@@ -540,13 +587,18 @@ class ClientesWidget:
         
         # Telefone
         ttk.Label(parent, text="Telefone *:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.telefone_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
-        self.telefone_entry.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        telefone_frame = ttk.Frame(parent)
+        telefone_frame.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        self.telefone_entry = ttk.Entry(telefone_frame, width=20, font=('Arial', 10))
+        self.telefone_entry.pack(side=tk.LEFT)
+        bind_phone_mask(self.telefone_entry)
+        ttk.Label(telefone_frame, text="(XX) XXXXX-XXXX", font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=(5, 0))
         
         # Email
         ttk.Label(parent, text="Email:").grid(row=2, column=0, sticky=tk.W, pady=5)
         self.email_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
         self.email_entry.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        bind_email_validator(self.email_entry)
         
         # Data de Cadastro
         ttk.Label(parent, text="Data Cadastro:").grid(row=3, column=0, sticky=tk.W, pady=5)
@@ -612,9 +664,21 @@ class ClientesWidget:
         for cliente in self.clientes:
             if cliente.ativo:  # Mostrar apenas clientes ativos
                 data_cadastro = cliente.data_cadastro.strftime("%d/%m/%Y") if cliente.data_cadastro else ""
+                # Formatar telefone para exibição
+                telefone_numeros = PhoneMask.get_numbers(cliente.telefone) if cliente.telefone else ""
+                if telefone_numeros:
+                    if len(telefone_numeros) == 10:
+                        telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+                    elif len(telefone_numeros) == 11:
+                        telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+                    else:
+                        telefone_formatado = cliente.telefone
+                else:
+                    telefone_formatado = cliente.telefone if cliente.telefone else ""
+                
                 self.clientes_tree.insert('', 'end', values=(
                     cliente.nome,
-                    cliente.telefone,
+                    telefone_formatado,
                     cliente.email,
                     data_cadastro
                 ), tags=(cliente.id,))
@@ -639,10 +703,21 @@ class ClientesWidget:
         self.nome_entry.insert(0, cliente.nome)
         
         self.telefone_entry.delete(0, tk.END)
-        self.telefone_entry.insert(0, cliente.telefone)
+        # Formatar telefone ao carregar
+        telefone_numeros = PhoneMask.get_numbers(cliente.telefone) if cliente.telefone else ""
+        if telefone_numeros:
+            if len(telefone_numeros) == 10:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+            elif len(telefone_numeros) == 11:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+            else:
+                telefone_formatado = cliente.telefone
+            self.telefone_entry.insert(0, telefone_formatado)
+        else:
+            self.telefone_entry.insert(0, cliente.telefone if cliente.telefone else "")
         
         self.email_entry.delete(0, tk.END)
-        self.email_entry.insert(0, cliente.email)
+        self.email_entry.insert(0, cliente.email if cliente.email else "")
         
         data_cadastro = cliente.data_cadastro.strftime("%d/%m/%Y %H:%M") if cliente.data_cadastro else ""
         self.data_cadastro_label.config(text=data_cadastro)
@@ -704,17 +779,37 @@ class ClientesWidget:
         # Validar campos obrigatórios
         nome = self.nome_entry.get().strip()
         telefone = self.telefone_entry.get().strip()
+        email = self.email_entry.get().strip()
         
-        if not nome or not telefone:
-            messagebox.showerror("Erro", "Nome e telefone são obrigatórios.")
+        if not nome:
+            messagebox.showerror("Erro", "Nome é obrigatório.")
+            self.nome_entry.focus()
+            return
+        
+        if not telefone:
+            messagebox.showerror("Erro", "Telefone é obrigatório.")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do telefone
+        if not PhoneMask.validate(telefone):
+            messagebox.showerror("Erro", "Telefone inválido. Use o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do email (se preenchido)
+        if email and not EmailValidator.validate(email):
+            messagebox.showerror("Erro", "Email inválido. Verifique o formato do email.")
+            self.email_entry.focus()
             return
         
         # Criar ou atualizar cliente
         if self.current_cliente:
             # Atualizar cliente existente
             self.current_cliente.nome = nome
-            self.current_cliente.telefone = telefone
-            self.current_cliente.email = self.email_entry.get().strip()
+            # Salvar telefone apenas com números
+            self.current_cliente.telefone = PhoneMask.get_numbers(telefone)
+            self.current_cliente.email = email
             self.current_cliente.observacoes = self.observacoes_text.get(1.0, tk.END).strip()
             self.current_cliente.ativo = self.ativo_var.get()
             messagebox.showinfo("Sucesso", "Cliente atualizado com sucesso!")
@@ -724,8 +819,8 @@ class ClientesWidget:
             novo_cliente = Cliente(
                 id=novo_id,
                 nome=nome,
-                telefone=telefone,
-                email=self.email_entry.get().strip(),
+                telefone=PhoneMask.get_numbers(telefone),
+                email=email,
                 observacoes=self.observacoes_text.get(1.0, tk.END).strip(),
                 ativo=self.ativo_var.get()
             )

@@ -4,6 +4,10 @@ from typing import List, Optional
 from models import Servico
 from decimal import Decimal
 from repositories import get_data_manager
+from .validators import (
+    bind_money_mask, bind_number_only,
+    MoneyMask
+)
 
 class ServicosWindow:
     """Janela de gerenciamento de serviços"""
@@ -224,9 +228,12 @@ class ServicosWindow:
         # Adicionar serviços
         for servico in self.servicos:
             status = "Ativo" if servico.ativo else "Inativo"
+            # Formatar preço para exibição
+            preco_formatado = MoneyMask.format_value(float(servico.preco))
+            
             self.servicos_tree.insert('', 'end', values=(
                 servico.nome,
-                f"R$ {servico.preco:.2f}",
+                preco_formatado,
                 servico.duracao_minutos,
                 status
             ), tags=(servico.id,))
@@ -251,7 +258,8 @@ class ServicosWindow:
         self.nome_entry.insert(0, servico.nome)
         
         self.preco_entry.delete(0, tk.END)
-        self.preco_entry.insert(0, str(servico.preco))
+        # Formatar preço como moeda
+        self.preco_entry.insert(0, MoneyMask.format_value(float(servico.preco)))
         
         self.duracao_entry.delete(0, tk.END)
         self.duracao_entry.insert(0, str(servico.duracao_minutos))
@@ -315,24 +323,47 @@ class ServicosWindow:
         preco_str = self.preco_entry.get().strip()
         duracao_str = self.duracao_entry.get().strip()
         
-        if not nome or not preco_str or not duracao_str:
-            messagebox.showerror("Erro", "Nome, preço e duração são obrigatórios.")
+        if not nome:
+            messagebox.showerror("Erro", "Nome é obrigatório.")
+            self.nome_entry.focus()
             return
         
+        if not preco_str:
+            messagebox.showerror("Erro", "Preço é obrigatório.")
+            self.preco_entry.focus()
+            return
+        
+        if not duracao_str:
+            messagebox.showerror("Erro", "Duração é obrigatória.")
+            self.duracao_entry.focus()
+            return
+        
+        # Formatar campo monetário se ainda não estiver formatado
+        if not preco_str.startswith('R$'):
+            # Formata antes de extrair o valor
+            formatted = MoneyMask.format_value_string(preco_str)
+            if formatted:
+                self.preco_entry.delete(0, tk.END)
+                self.preco_entry.insert(0, formatted)
+                preco_str = formatted
+        
         try:
-            preco = Decimal(preco_str)
+            # Extrair valor numérico do campo monetário
+            preco = Decimal(str(MoneyMask.get_value(preco_str)))
             duracao = int(duracao_str)
             
             if preco < 0:
                 messagebox.showerror("Erro", "O preço deve ser maior ou igual a zero.")
+                self.preco_entry.focus()
                 return
             
             if duracao <= 0:
                 messagebox.showerror("Erro", "A duração deve ser maior que zero.")
+                self.duracao_entry.focus()
                 return
                 
-        except (ValueError, TypeError):
-            messagebox.showerror("Erro", "Preço e duração devem ser números válidos.")
+        except (ValueError, TypeError) as e:
+            messagebox.showerror("Erro", f"Preço e duração devem ser números válidos.\n{str(e)}")
             return
         
         # Criar ou atualizar serviço
@@ -551,11 +582,13 @@ class ServicosWidget:
         ttk.Label(parent, text="Preço (R$) *:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.preco_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
         self.preco_entry.grid(row=1, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        bind_money_mask(self.preco_entry)
         
         # Duração
         ttk.Label(parent, text="Duração (min) *:").grid(row=2, column=0, sticky=tk.W, pady=5)
         self.duracao_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
         self.duracao_entry.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        bind_number_only(self.duracao_entry)
         
         # Descrição
         ttk.Label(parent, text="Descrição:").grid(row=3, column=0, sticky=tk.W, pady=5)
@@ -617,9 +650,12 @@ class ServicosWidget:
         # Adicionar serviços
         for servico in self.servicos:
             status = "Ativo" if servico.ativo else "Inativo"
+            # Formatar preço para exibição
+            preco_formatado = MoneyMask.format_value(float(servico.preco))
+            
             self.servicos_tree.insert('', 'end', values=(
                 servico.nome,
-                f"R$ {servico.preco:.2f}",
+                preco_formatado,
                 servico.duracao_minutos,
                 status
             ), tags=(servico.id,))
@@ -644,7 +680,8 @@ class ServicosWidget:
         self.nome_entry.insert(0, servico.nome)
         
         self.preco_entry.delete(0, tk.END)
-        self.preco_entry.insert(0, str(servico.preco))
+        # Formatar preço como moeda
+        self.preco_entry.insert(0, MoneyMask.format_value(float(servico.preco)))
         
         self.duracao_entry.delete(0, tk.END)
         self.duracao_entry.insert(0, str(servico.duracao_minutos))
@@ -708,24 +745,47 @@ class ServicosWidget:
         preco_str = self.preco_entry.get().strip()
         duracao_str = self.duracao_entry.get().strip()
         
-        if not nome or not preco_str or not duracao_str:
-            messagebox.showerror("Erro", "Nome, preço e duração são obrigatórios.")
+        if not nome:
+            messagebox.showerror("Erro", "Nome é obrigatório.")
+            self.nome_entry.focus()
             return
         
+        if not preco_str:
+            messagebox.showerror("Erro", "Preço é obrigatório.")
+            self.preco_entry.focus()
+            return
+        
+        if not duracao_str:
+            messagebox.showerror("Erro", "Duração é obrigatória.")
+            self.duracao_entry.focus()
+            return
+        
+        # Formatar campo monetário se ainda não estiver formatado
+        if not preco_str.startswith('R$'):
+            # Formata antes de extrair o valor
+            formatted = MoneyMask.format_value_string(preco_str)
+            if formatted:
+                self.preco_entry.delete(0, tk.END)
+                self.preco_entry.insert(0, formatted)
+                preco_str = formatted
+        
         try:
-            preco = Decimal(preco_str)
+            # Extrair valor numérico do campo monetário
+            preco = Decimal(str(MoneyMask.get_value(preco_str)))
             duracao = int(duracao_str)
             
             if preco < 0:
                 messagebox.showerror("Erro", "O preço deve ser maior ou igual a zero.")
+                self.preco_entry.focus()
                 return
             
             if duracao <= 0:
                 messagebox.showerror("Erro", "A duração deve ser maior que zero.")
+                self.duracao_entry.focus()
                 return
                 
-        except (ValueError, TypeError):
-            messagebox.showerror("Erro", "Preço e duração devem ser números válidos.")
+        except (ValueError, TypeError) as e:
+            messagebox.showerror("Erro", f"Preço e duração devem ser números válidos.\n{str(e)}")
             return
         
         # Criar ou atualizar serviço

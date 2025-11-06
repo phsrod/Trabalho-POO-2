@@ -4,6 +4,10 @@ from typing import List, Optional
 from models import Funcionario
 from datetime import datetime
 from repositories import get_data_manager
+from .validators import (
+    bind_phone_mask, bind_email_validator, bind_money_mask,
+    PhoneMask, EmailValidator, MoneyMask
+)
 
 class FuncionariosWindow:
     """Janela de gerenciamento de funcionários"""
@@ -236,11 +240,26 @@ class FuncionariosWindow:
         # Adicionar funcionários
         for funcionario in self.funcionarios:
             status = "Ativo" if funcionario.ativo else "Inativo"
+            # Formatar telefone para exibição
+            telefone_numeros = PhoneMask.get_numbers(funcionario.telefone) if funcionario.telefone else ""
+            if telefone_numeros:
+                if len(telefone_numeros) == 10:
+                    telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+                elif len(telefone_numeros) == 11:
+                    telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+                else:
+                    telefone_formatado = funcionario.telefone
+            else:
+                telefone_formatado = funcionario.telefone if funcionario.telefone else ""
+            
+            # Formatar salário para exibição
+            salario_formatado = MoneyMask.format_value(funcionario.salario)
+            
             self.funcionarios_tree.insert('', 'end', values=(
                 funcionario.nome,
                 funcionario.cargo,
-                funcionario.telefone,
-                f"R$ {funcionario.salario:.2f}",
+                telefone_formatado,
+                salario_formatado,
                 status
             ), tags=(funcionario.id,))
     
@@ -266,13 +285,25 @@ class FuncionariosWindow:
         self.cargo_combo.set(funcionario.cargo)
         
         self.telefone_entry.delete(0, tk.END)
-        self.telefone_entry.insert(0, funcionario.telefone)
+        # Formatar telefone ao carregar
+        telefone_numeros = PhoneMask.get_numbers(funcionario.telefone) if funcionario.telefone else ""
+        if telefone_numeros:
+            if len(telefone_numeros) == 10:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+            elif len(telefone_numeros) == 11:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+            else:
+                telefone_formatado = funcionario.telefone
+            self.telefone_entry.insert(0, telefone_formatado)
+        else:
+            self.telefone_entry.insert(0, funcionario.telefone if funcionario.telefone else "")
         
         self.email_entry.delete(0, tk.END)
-        self.email_entry.insert(0, funcionario.email)
+        self.email_entry.insert(0, funcionario.email if funcionario.email else "")
         
         self.salario_entry.delete(0, tk.END)
-        self.salario_entry.insert(0, str(funcionario.salario))
+        # Formatar salário como moeda
+        self.salario_entry.insert(0, MoneyMask.format_value(funcionario.salario))
         
         data_admissao = funcionario.data_admissao.strftime("%d/%m/%Y") if funcionario.data_admissao else ""
         self.data_admissao_label.config(text=data_admissao)
@@ -333,18 +364,59 @@ class FuncionariosWindow:
         cargo = self.cargo_combo.get().strip()
         telefone = self.telefone_entry.get().strip()
         salario_str = self.salario_entry.get().strip()
+        email = self.email_entry.get().strip()
         
-        if not nome or not cargo or not telefone or not salario_str:
-            messagebox.showerror("Erro", "Nome, cargo, telefone e salário são obrigatórios.")
+        if not nome:
+            messagebox.showerror("Erro", "Nome é obrigatório.")
+            self.nome_entry.focus()
             return
         
+        if not cargo:
+            messagebox.showerror("Erro", "Cargo é obrigatório.")
+            self.cargo_combo.focus()
+            return
+        
+        if not telefone:
+            messagebox.showerror("Erro", "Telefone é obrigatório.")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do telefone
+        if not PhoneMask.validate(telefone):
+            messagebox.showerror("Erro", "Telefone inválido. Use o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do email (se preenchido)
+        if email and not EmailValidator.validate(email):
+            messagebox.showerror("Erro", "Email inválido. Verifique o formato do email.")
+            self.email_entry.focus()
+            return
+        
+        if not salario_str:
+            messagebox.showerror("Erro", "Salário é obrigatório.")
+            self.salario_entry.focus()
+            return
+        
+        # Formatar campo monetário se ainda não estiver formatado
+        if not salario_str.startswith('R$'):
+            # Formata antes de extrair o valor
+            formatted = MoneyMask.format_value_string(salario_str)
+            if formatted:
+                self.salario_entry.delete(0, tk.END)
+                self.salario_entry.insert(0, formatted)
+                salario_str = formatted
+        
         try:
-            salario = float(salario_str)
+            # Extrair valor numérico do campo monetário
+            salario = MoneyMask.get_value(salario_str)
             if salario < 0:
                 messagebox.showerror("Erro", "O salário deve ser maior ou igual a zero.")
+                self.salario_entry.focus()
                 return
         except (ValueError, TypeError):
             messagebox.showerror("Erro", "Salário deve ser um número válido.")
+            self.salario_entry.focus()
             return
         
         # Criar ou atualizar funcionário
@@ -352,8 +424,9 @@ class FuncionariosWindow:
             # Atualizar funcionário existente
             self.current_funcionario.nome = nome
             self.current_funcionario.cargo = cargo
-            self.current_funcionario.telefone = telefone
-            self.current_funcionario.email = self.email_entry.get().strip()
+            # Salvar telefone apenas com números
+            self.current_funcionario.telefone = PhoneMask.get_numbers(telefone)
+            self.current_funcionario.email = email
             self.current_funcionario.salario = salario
             self.current_funcionario.ativo = self.ativo_var.get()
             messagebox.showinfo("Sucesso", "Funcionário atualizado com sucesso!")
@@ -364,8 +437,8 @@ class FuncionariosWindow:
                 id=novo_id,
                 nome=nome,
                 cargo=cargo,
-                telefone=telefone,
-                email=self.email_entry.get().strip(),
+                telefone=PhoneMask.get_numbers(telefone),
+                email=email,
                 salario=salario,
                 ativo=self.ativo_var.get()
             )
@@ -573,18 +646,24 @@ class FuncionariosWidget:
         
         # Telefone
         ttk.Label(parent, text="Telefone *:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.telefone_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
-        self.telefone_entry.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        telefone_frame = ttk.Frame(parent)
+        telefone_frame.grid(row=2, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        self.telefone_entry = ttk.Entry(telefone_frame, width=20, font=('Arial', 10))
+        self.telefone_entry.pack(side=tk.LEFT)
+        bind_phone_mask(self.telefone_entry)
+        ttk.Label(telefone_frame, text="(XX) XXXXX-XXXX", font=('Arial', 8), foreground='gray').pack(side=tk.LEFT, padx=(5, 0))
         
         # Email
         ttk.Label(parent, text="Email:").grid(row=3, column=0, sticky=tk.W, pady=5)
         self.email_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
         self.email_entry.grid(row=3, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        bind_email_validator(self.email_entry)
         
         # Salário
         ttk.Label(parent, text="Salário (R$) *:").grid(row=4, column=0, sticky=tk.W, pady=5)
         self.salario_entry = ttk.Entry(parent, width=25, font=('Arial', 10))
         self.salario_entry.grid(row=4, column=1, sticky=tk.W, padx=(10, 0), pady=5)
+        bind_money_mask(self.salario_entry)
         
         # Data de Admissão
         ttk.Label(parent, text="Data Admissão:").grid(row=5, column=0, sticky=tk.W, pady=5)
@@ -645,11 +724,26 @@ class FuncionariosWidget:
         # Adicionar funcionários
         for funcionario in self.funcionarios:
             status = "Ativo" if funcionario.ativo else "Inativo"
+            # Formatar telefone para exibição
+            telefone_numeros = PhoneMask.get_numbers(funcionario.telefone) if funcionario.telefone else ""
+            if telefone_numeros:
+                if len(telefone_numeros) == 10:
+                    telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+                elif len(telefone_numeros) == 11:
+                    telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+                else:
+                    telefone_formatado = funcionario.telefone
+            else:
+                telefone_formatado = funcionario.telefone if funcionario.telefone else ""
+            
+            # Formatar salário para exibição
+            salario_formatado = MoneyMask.format_value(funcionario.salario)
+            
             self.funcionarios_tree.insert('', 'end', values=(
                 funcionario.nome,
                 funcionario.cargo,
-                funcionario.telefone,
-                f"R$ {funcionario.salario:.2f}",
+                telefone_formatado,
+                salario_formatado,
                 status
             ), tags=(funcionario.id,))
     
@@ -675,13 +769,25 @@ class FuncionariosWidget:
         self.cargo_combo.set(funcionario.cargo)
         
         self.telefone_entry.delete(0, tk.END)
-        self.telefone_entry.insert(0, funcionario.telefone)
+        # Formatar telefone ao carregar
+        telefone_numeros = PhoneMask.get_numbers(funcionario.telefone) if funcionario.telefone else ""
+        if telefone_numeros:
+            if len(telefone_numeros) == 10:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+            elif len(telefone_numeros) == 11:
+                telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
+            else:
+                telefone_formatado = funcionario.telefone
+            self.telefone_entry.insert(0, telefone_formatado)
+        else:
+            self.telefone_entry.insert(0, funcionario.telefone if funcionario.telefone else "")
         
         self.email_entry.delete(0, tk.END)
-        self.email_entry.insert(0, funcionario.email)
+        self.email_entry.insert(0, funcionario.email if funcionario.email else "")
         
         self.salario_entry.delete(0, tk.END)
-        self.salario_entry.insert(0, str(funcionario.salario))
+        # Formatar salário como moeda
+        self.salario_entry.insert(0, MoneyMask.format_value(funcionario.salario))
         
         data_admissao = funcionario.data_admissao.strftime("%d/%m/%Y") if funcionario.data_admissao else ""
         self.data_admissao_label.config(text=data_admissao)
@@ -742,18 +848,59 @@ class FuncionariosWidget:
         cargo = self.cargo_combo.get().strip()
         telefone = self.telefone_entry.get().strip()
         salario_str = self.salario_entry.get().strip()
+        email = self.email_entry.get().strip()
         
-        if not nome or not cargo or not telefone or not salario_str:
-            messagebox.showerror("Erro", "Nome, cargo, telefone e salário são obrigatórios.")
+        if not nome:
+            messagebox.showerror("Erro", "Nome é obrigatório.")
+            self.nome_entry.focus()
             return
         
+        if not cargo:
+            messagebox.showerror("Erro", "Cargo é obrigatório.")
+            self.cargo_combo.focus()
+            return
+        
+        if not telefone:
+            messagebox.showerror("Erro", "Telefone é obrigatório.")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do telefone
+        if not PhoneMask.validate(telefone):
+            messagebox.showerror("Erro", "Telefone inválido. Use o formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX")
+            self.telefone_entry.focus()
+            return
+        
+        # Validar formato do email (se preenchido)
+        if email and not EmailValidator.validate(email):
+            messagebox.showerror("Erro", "Email inválido. Verifique o formato do email.")
+            self.email_entry.focus()
+            return
+        
+        if not salario_str:
+            messagebox.showerror("Erro", "Salário é obrigatório.")
+            self.salario_entry.focus()
+            return
+        
+        # Formatar campo monetário se ainda não estiver formatado
+        if not salario_str.startswith('R$'):
+            # Formata antes de extrair o valor
+            formatted = MoneyMask.format_value_string(salario_str)
+            if formatted:
+                self.salario_entry.delete(0, tk.END)
+                self.salario_entry.insert(0, formatted)
+                salario_str = formatted
+        
         try:
-            salario = float(salario_str)
+            # Extrair valor numérico do campo monetário
+            salario = MoneyMask.get_value(salario_str)
             if salario < 0:
                 messagebox.showerror("Erro", "O salário deve ser maior ou igual a zero.")
+                self.salario_entry.focus()
                 return
         except (ValueError, TypeError):
             messagebox.showerror("Erro", "Salário deve ser um número válido.")
+            self.salario_entry.focus()
             return
         
         # Criar ou atualizar funcionário
@@ -761,8 +908,9 @@ class FuncionariosWidget:
             # Atualizar funcionário existente
             self.current_funcionario.nome = nome
             self.current_funcionario.cargo = cargo
-            self.current_funcionario.telefone = telefone
-            self.current_funcionario.email = self.email_entry.get().strip()
+            # Salvar telefone apenas com números
+            self.current_funcionario.telefone = PhoneMask.get_numbers(telefone)
+            self.current_funcionario.email = email
             self.current_funcionario.salario = salario
             self.current_funcionario.ativo = self.ativo_var.get()
             messagebox.showinfo("Sucesso", "Funcionário atualizado com sucesso!")
@@ -773,8 +921,8 @@ class FuncionariosWidget:
                 id=novo_id,
                 nome=nome,
                 cargo=cargo,
-                telefone=telefone,
-                email=self.email_entry.get().strip(),
+                telefone=PhoneMask.get_numbers(telefone),
+                email=email,
                 salario=salario,
                 ativo=self.ativo_var.get()
             )

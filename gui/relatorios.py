@@ -5,6 +5,7 @@ from models import Cliente, Funcionario, Servico, Agendamento
 from datetime import datetime, timedelta, date
 from collections import defaultdict
 from repositories import get_data_manager
+from .validators import bind_date_mask
 
 class RelatoriosWindow:
     """Janela de relatórios e estatísticas"""
@@ -91,12 +92,14 @@ class RelatoriosWindow:
         data_inicial_padrao = (datetime.now() - timedelta(days=30)).strftime("%d/%m/%Y")
         self.data_inicial_var = tk.StringVar(value=data_inicial_padrao)
         self.data_inicial_entry = ttk.Entry(filters_content, textvariable=self.data_inicial_var, width=12, font=('Arial', 10))
+        bind_date_mask(self.data_inicial_entry)
         self.data_inicial_entry.grid(row=0, column=3, sticky=tk.W, padx=(0, 20), pady=5)
         
         # Data final
         ttk.Label(filters_content, text="Data Final:").grid(row=0, column=4, sticky=tk.W, padx=(0, 10), pady=5)
         self.data_final_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
         self.data_final_entry = ttk.Entry(filters_content, textvariable=self.data_final_var, width=12, font=('Arial', 10))
+        bind_date_mask(self.data_final_entry)
         self.data_final_entry.grid(row=0, column=5, sticky=tk.W, padx=(0, 20), pady=5)
         
         # Botão atualizar
@@ -597,6 +600,7 @@ class RelatoriosWidget:
         ttk.Label(filters_content, text="Data Inicial:").grid(row=0, column=2, sticky=tk.W, padx=(0, 10), pady=5)
         self.data_inicial_var = tk.StringVar(value=inicio_ano.strftime("%d/%m/%Y"))
         self.data_inicial_entry = ttk.Entry(filters_content, textvariable=self.data_inicial_var, width=12, font=('Arial', 10))
+        bind_date_mask(self.data_inicial_entry)
         self.data_inicial_entry.grid(row=0, column=3, sticky=tk.W, padx=(0, 20), pady=5)
         
         # Data final (padrão: fim do ano)
@@ -604,6 +608,7 @@ class RelatoriosWidget:
         ttk.Label(filters_content, text="Data Final:").grid(row=0, column=4, sticky=tk.W, padx=(0, 10), pady=5)
         self.data_final_var = tk.StringVar(value=fim_ano.strftime("%d/%m/%Y"))
         self.data_final_entry = ttk.Entry(filters_content, textvariable=self.data_final_var, width=12, font=('Arial', 10))
+        bind_date_mask(self.data_final_entry)
         self.data_final_entry.grid(row=0, column=5, sticky=tk.W, padx=(0, 20), pady=5)
         
         # Botão atualizar

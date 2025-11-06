@@ -5,6 +5,10 @@ from models import Agendamento, Cliente, Funcionario, Servico
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 from repositories import get_data_manager
+from .validators import (
+    bind_date_mask, bind_time_mask,
+    DateMask, TimeMask
+)
 
 class AgendamentosWindow:
     """Janela de visualização de agendamentos"""
@@ -86,6 +90,7 @@ class AgendamentosWindow:
         self.data_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
         self.data_entry = ttk.Entry(filters_content, textvariable=self.data_var, width=12, font=('Arial', 10))
         self.data_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 20), pady=5)
+        bind_date_mask(self.data_entry)
         
         # Status
         ttk.Label(filters_content, text="Status:").grid(row=0, column=2, sticky=tk.W, padx=(0, 10), pady=5)
@@ -429,6 +434,7 @@ class AgendamentosWidget:
         self.data_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
         self.data_entry = ttk.Entry(filters_content, textvariable=self.data_var, width=12, font=('Arial', 10))
         self.data_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 20), pady=5)
+        bind_date_mask(self.data_entry)
         
         # Status
         ttk.Label(filters_content, text="Status:").grid(row=0, column=2, sticky=tk.W, padx=(0, 10), pady=5)
@@ -830,15 +836,17 @@ class NovoAgendamentoDialog:
         self.data_var = tk.StringVar(value=datetime.now().strftime("%d/%m/%Y"))
         self.data_entry = ttk.Entry(main_frame, textvariable=self.data_var, width=20)
         self.data_entry.grid(row=3, column=1, sticky=tk.W, pady=5, padx=(10, 0))
+        bind_date_mask(self.data_entry)
         self.data_var.trace('w', lambda *args: self.update_horarios_disponiveis())
-        ttk.Label(main_frame, text="(DD/MM/AAAA)").grid(row=3, column=2, sticky=tk.W, padx=(5, 0))
+        ttk.Label(main_frame, text="(DD/MM/AAAA)", font=('Arial', 8), foreground='gray').grid(row=3, column=2, sticky=tk.W, padx=(5, 0))
         
         # Hora
         ttk.Label(main_frame, text="Hora *:").grid(row=4, column=0, sticky=tk.W, pady=5)
         self.hora_var = tk.StringVar(value="09:00")
         self.hora_entry = ttk.Entry(main_frame, textvariable=self.hora_var, width=20)
         self.hora_entry.grid(row=4, column=1, sticky=tk.W, pady=5, padx=(10, 0))
-        ttk.Label(main_frame, text="(HH:MM)").grid(row=4, column=2, sticky=tk.W, padx=(5, 0))
+        bind_time_mask(self.hora_entry)
+        ttk.Label(main_frame, text="(HH:MM)", font=('Arial', 8), foreground='gray').grid(row=4, column=2, sticky=tk.W, padx=(5, 0))
         
         # Duração (calculada automaticamente)
         ttk.Label(main_frame, text="Duração:").grid(row=5, column=0, sticky=tk.W, pady=5)
@@ -1030,8 +1038,14 @@ class NovoAgendamentoDialog:
             return False, "Serviço não encontrado ou inativo."
         
         # Validar data
+        data_str = self.data_var.get().strip()
+        if not data_str:
+            return False, "Data é obrigatória."
+        
+        if not DateMask.validate(data_str):
+            return False, "Data inválida. Use o formato DD/MM/AAAA."
+        
         try:
-            data_str = self.data_var.get()
             data_agendamento = datetime.strptime(data_str, "%d/%m/%Y").date()
         except ValueError:
             return False, "Data inválida. Use o formato DD/MM/AAAA."
@@ -1041,13 +1055,19 @@ class NovoAgendamentoDialog:
             return False, "Não é possível agendar em datas passadas."
         
         # Validar hora
+        hora_str = self.hora_var.get().strip()
+        if not hora_str:
+            return False, "Hora é obrigatória."
+        
+        if not TimeMask.validate(hora_str):
+            return False, "Hora inválida. Use o formato HH:MM."
+        
         try:
-            hora_str = self.hora_var.get()
             hora_parts = hora_str.split(":")
             hora = int(hora_parts[0])
             minuto = int(hora_parts[1])
             if hora < 0 or hora > 23 or minuto < 0 or minuto > 59:
-                return False, "Hora inválida."
+                return False, "Hora inválida. Use valores entre 00:00 e 23:59."
         except (ValueError, IndexError):
             return False, "Hora inválida. Use o formato HH:MM."
         
