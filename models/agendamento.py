@@ -43,7 +43,6 @@ class Agendamento:
             except (ValueError, TypeError):
                 try:
                     # Tenta parsear como apenas data (YYYY-MM-DD)
-                    from datetime import date as date_type
                     date_str = data['data_agendamento']
                     if isinstance(date_str, str) and 'T' not in date_str:
                         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()

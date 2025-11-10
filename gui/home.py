@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import Callable, Optional
 from datetime import datetime, date
 from .clientes import ClientesWidget
 from .servicos import ServicosWidget
@@ -414,7 +413,3 @@ class HomeWindow:
             
             self.stats_labels['receita_mensal'].config(text=f"R$ {receita_total:.2f}")
     
-    def run(self):
-        # O método run não precisa fazer nada aqui
-        # A janela já foi criada e o wait_window é chamado no app_controller
-        pass
