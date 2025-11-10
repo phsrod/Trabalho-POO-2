@@ -18,7 +18,6 @@ class ClientesWindow:
         self.clientes: List[Cliente] = []
         self.current_cliente: Optional[Cliente] = None
         self.create_window()
-        self.load_sample_data()
         self.refresh_clientes_list()
     
     def create_window(self):
@@ -211,16 +210,7 @@ class ClientesWindow:
             command=self.clear_form,
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(10, 0))
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        sample_clientes = [
-            Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
-            Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
-            Cliente(3, "Pedro Oliveira", "(11) 77777-7777", "pedro@email.com", datetime.now(), "Prefere corte tradicional", True),
-            Cliente(4, "Ana Costa", "(11) 66666-6666", "ana@email.com", datetime.now(), "", False),
-        ]
-        self.clientes = sample_clientes
+
     
     def refresh_clientes_list(self):
         """Atualiza a lista de clientes"""
@@ -445,9 +435,6 @@ class ClientesWidget:
         """Carrega dados do arquivo usando thread"""
         def on_data_loaded(clientes_loaded):
             self.clientes = clientes_loaded
-            # Se não há dados, carrega dados de exemplo
-            if not self.clientes:
-                self.load_sample_data()
             self.refresh_clientes_list()
         
         # Mostra indicador de carregamento
@@ -644,15 +631,6 @@ class ClientesWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(10, 0))
     
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        sample_clientes = [
-            Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
-            Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
-            Cliente(3, "Pedro Oliveira", "(11) 77777-7777", "pedro@email.com", datetime.now(), "Prefere corte tradicional", True),
-            Cliente(4, "Ana Costa", "(11) 66666-6666", "ana@email.com", datetime.now(), "", False),
-        ]
-        self.clientes = sample_clientes
     
     def refresh_clientes_list(self):
         """Atualiza a lista de clientes"""

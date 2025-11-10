@@ -32,12 +32,12 @@
   {
     "id": 4,
     "nome": "João Oliveira",
-    "telefone": "(11) 66666-6666",
+    "telefone": "11666666666",
     "email": "joao@barbearia.com",
     "cargo": "Gerente",
     "data_admissao": "2025-11-04T18:38:23.213873",
     "salario": 3500.0,
-    "ativo": false
+    "ativo": true
   },
   {
     "id": 5,
@@ -48,5 +48,15 @@
     "data_admissao": "2025-11-04T18:38:23.213875",
     "salario": 2500.0,
     "ativo": false
+  },
+  {
+    "id": 6,
+    "nome": "Luciano Barbosa",
+    "telefone": "89994492208",
+    "email": "lsb@email.com",
+    "cargo": "Gerente",
+    "data_admissao": "2025-11-09T23:33:59.903726",
+    "salario": 20.0,
+    "ativo": true
   }
 ]

@@ -21,7 +21,6 @@ class AgendamentosWindow:
         self.funcionarios: List[Funcionario] = []
         self.servicos: List[Servico] = []
         self.create_window()
-        self.load_sample_data()
         self.refresh_agendamentos_list()
     
     def create_window(self):
@@ -184,38 +183,8 @@ class AgendamentosWindow:
         
         # Bind duplo clique
         self.agendamentos_tree.bind('<Double-1>', self.on_agendamento_double_click)
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        # Clientes
-        self.clientes = [
-            Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
-            Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
-            Cliente(3, "Pedro Oliveira", "(11) 77777-7777", "pedro@email.com", datetime.now(), "Prefere corte tradicional", True),
-        ]
         
-        # Funcionários
-        self.funcionarios = [
-            Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
-            Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
-        ]
-        
-        # Serviços
-        self.servicos = [
-            Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", 25.00, 30, True),
-            Servico(2, "Barba", "Aparar e modelar barba", 15.00, 20, True),
-            Servico(3, "Corte + Barba", "Corte de cabelo + barba", 35.00, 45, True),
-        ]
-        
-        # Agendamentos
-        hoje = datetime.now().date()
-        self.agendamentos = [
-            Agendamento(1, 1, 1, 1, hoje, datetime.combine(hoje, datetime.min.time().replace(hour=9)), datetime.combine(hoje, datetime.min.time().replace(hour=9, minute=30)), "confirmado", "", 25.00),
-            Agendamento(2, 2, 2, 2, hoje, datetime.combine(hoje, datetime.min.time().replace(hour=10)), datetime.combine(hoje, datetime.min.time().replace(hour=10, minute=20)), "agendado", "", 15.00),
-            Agendamento(3, 3, 1, 3, hoje, datetime.combine(hoje, datetime.min.time().replace(hour=14)), datetime.combine(hoje, datetime.min.time().replace(hour=14, minute=45)), "em_andamento", "", 35.00),
-            Agendamento(4, 1, 2, 1, hoje + timedelta(days=1), datetime.combine(hoje + timedelta(days=1), datetime.min.time().replace(hour=9)), datetime.combine(hoje + timedelta(days=1), datetime.min.time().replace(hour=9, minute=30)), "agendado", "", 25.00),
-        ]
-    
+           
     def refresh_agendamentos_list(self):
         """Atualiza a lista de agendamentos"""
         # Limpar lista

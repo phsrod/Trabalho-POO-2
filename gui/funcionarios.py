@@ -18,7 +18,6 @@ class FuncionariosWindow:
         self.funcionarios: List[Funcionario] = []
         self.current_funcionario: Optional[Funcionario] = None
         self.create_window()
-        self.load_sample_data()
         self.refresh_funcionarios_list()
     
     def create_window(self):
@@ -220,16 +219,6 @@ class FuncionariosWindow:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(10, 0))
     
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        sample_funcionarios = [
-            Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
-            Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
-            Funcionario(3, "Ana Costa", "(11) 77777-7777", "ana@barbearia.com", "Recepcionista", datetime.now(), 1800.00, True),
-            Funcionario(4, "João Oliveira", "(11) 66666-6666", "joao@barbearia.com", "Gerente", datetime.now(), 3500.00, True),
-            Funcionario(5, "Pedro Lima", "(11) 55555-5555", "pedro@barbearia.com", "Barbeiro", datetime.now(), 2500.00, False),
-        ]
-        self.funcionarios = sample_funcionarios
     
     def refresh_funcionarios_list(self):
         """Atualiza a lista de funcionários"""
@@ -496,9 +485,6 @@ class FuncionariosWidget:
         """Carrega dados do arquivo usando thread"""
         def on_data_loaded(funcionarios_loaded):
             self.funcionarios = funcionarios_loaded
-            # Se não há dados, carrega dados de exemplo
-            if not self.funcionarios:
-                self.load_sample_data()
             self.refresh_funcionarios_list()
         
         # Mostra indicador de carregamento
@@ -703,17 +689,7 @@ class FuncionariosWidget:
             command=self.clear_form,
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(10, 0))
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        sample_funcionarios = [
-            Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
-            Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
-            Funcionario(3, "Ana Costa", "(11) 77777-7777", "ana@barbearia.com", "Recepcionista", datetime.now(), 1800.00, True),
-            Funcionario(4, "João Oliveira", "(11) 66666-6666", "joao@barbearia.com", "Gerente", datetime.now(), 3500.00, True),
-            Funcionario(5, "Pedro Lima", "(11) 55555-5555", "pedro@barbearia.com", "Barbeiro", datetime.now(), 2500.00, False),
-        ]
-        self.funcionarios = sample_funcionarios
+
     
     def refresh_funcionarios_list(self):
         """Atualiza a lista de funcionários"""

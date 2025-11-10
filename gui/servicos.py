@@ -18,7 +18,6 @@ class ServicosWindow:
         self.servicos: List[Servico] = []
         self.current_servico: Optional[Servico] = None
         self.create_window()
-        self.load_sample_data()
         self.refresh_servicos_list()
     
     def create_window(self):
@@ -206,18 +205,6 @@ class ServicosWindow:
             command=self.clear_form,
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(10, 0))
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        sample_servicos = [
-            Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", Decimal('25.00'), 30, True),
-            Servico(2, "Barba", "Aparar e modelar barba", Decimal('15.00'), 20, True),
-            Servico(3, "Corte + Barba", "Corte de cabelo + barba", Decimal('35.00'), 45, True),
-            Servico(4, "Sobrancelha", "Aparar sobrancelhas", Decimal('10.00'), 15, True),
-            Servico(5, "Corte Feminino", "Corte de cabelo feminino", Decimal('40.00'), 60, True),
-            Servico(6, "Pintura", "Pintura de cabelo", Decimal('80.00'), 120, False),
-        ]
-        self.servicos = sample_servicos
     
     def refresh_servicos_list(self):
         """Atualiza a lista de serviços"""
@@ -438,9 +425,6 @@ class ServicosWidget:
         """Carrega dados do arquivo usando thread"""
         def on_data_loaded(servicos_loaded):
             self.servicos = servicos_loaded
-            # Se não há dados, carrega dados de exemplo
-            if not self.servicos:
-                self.load_sample_data()
             self.refresh_servicos_list()
         
         # Mostra indicador de carregamento
@@ -628,18 +612,6 @@ class ServicosWidget:
             command=self.clear_form,
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(10, 0))
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        sample_servicos = [
-            Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", Decimal('25.00'), 30, True),
-            Servico(2, "Barba", "Aparar e modelar barba", Decimal('15.00'), 20, True),
-            Servico(3, "Corte + Barba", "Corte de cabelo + barba", Decimal('35.00'), 45, True),
-            Servico(4, "Sobrancelha", "Aparar sobrancelhas", Decimal('10.00'), 15, True),
-            Servico(5, "Corte Feminino", "Corte de cabelo feminino", Decimal('40.00'), 60, True),
-            Servico(6, "Pintura", "Pintura de cabelo", Decimal('80.00'), 120, False),
-        ]
-        self.servicos = sample_servicos
     
     def refresh_servicos_list(self):
         """Atualiza a lista de serviços"""

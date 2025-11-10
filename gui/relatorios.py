@@ -18,7 +18,6 @@ class RelatoriosWindow:
         self.servicos: List[Servico] = []
         self.agendamentos: List[Agendamento] = []
         self.create_window()
-        self.load_sample_data()
         self.update_statistics()
     
     def create_window(self):
@@ -207,57 +206,6 @@ class RelatoriosWindow:
         self.employees_tree.column('Receita', width=100)
         
         self.employees_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        # Clientes
-        self.clientes = [
-            Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
-            Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
-            Cliente(3, "Pedro Oliveira", "(11) 77777-7777", "pedro@email.com", datetime.now(), "Prefere corte tradicional", True),
-            Cliente(4, "Ana Costa", "(11) 66666-6666", "ana@email.com", datetime.now(), "", False),
-        ]
-        
-        # Funcionários
-        self.funcionarios = [
-            Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
-            Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
-        ]
-        
-        # Serviços
-        self.servicos = [
-            Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", 25.00, 30, True),
-            Servico(2, "Barba", "Aparar e modelar barba", 15.00, 20, True),
-            Servico(3, "Corte + Barba", "Corte de cabelo + barba", 35.00, 45, True),
-        ]
-        
-        # Agendamentos (últimos 30 dias)
-        hoje = datetime.now().date()
-        self.agendamentos = []
-        
-        # Gerar agendamentos de exemplo para os últimos 30 dias
-        for i in range(30):
-            data = hoje - timedelta(days=i)
-            if i < 5:  # Apenas alguns dias com agendamentos
-                for j in range(3):  # 3 agendamentos por dia
-                    cliente_id = (i + j) % len(self.clientes) + 1
-                    funcionario_id = (i + j) % len(self.funcionarios) + 1
-                    servico_id = (i + j) % len(self.servicos) + 1
-                    
-                    servico = next((s for s in self.servicos if s.id == servico_id), None)
-                    if servico:
-                        agendamento = Agendamento(
-                            id=len(self.agendamentos) + 1,
-                            cliente_id=cliente_id,
-                            funcionario_id=funcionario_id,
-                            servico_id=servico_id,
-                            data_agendamento=data,
-                            horario_inicio=datetime.combine(data, datetime.min.time().replace(hour=9 + j)),
-                            horario_fim=datetime.combine(data, datetime.min.time().replace(hour=9 + j, minute=30)),
-                            status="concluido",
-                            valor_total=servico.preco
-                        )
-                        self.agendamentos.append(agendamento)
     
     def on_period_change(self, event):
         """Callback quando o período é alterado"""
@@ -724,57 +672,6 @@ class RelatoriosWidget:
         self.employees_tree.column('Receita', width=80)
         
         self.employees_tree.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-    
-    def load_sample_data(self):
-        """Carrega dados de exemplo"""
-        # Clientes
-        self.clientes = [
-            Cliente(1, "João Silva", "(11) 99999-9999", "joao@email.com", datetime.now(), "Cliente VIP", True),
-            Cliente(2, "Maria Santos", "(11) 88888-8888", "maria@email.com", datetime.now(), "", True),
-            Cliente(3, "Pedro Oliveira", "(11) 77777-7777", "pedro@email.com", datetime.now(), "Prefere corte tradicional", True),
-            Cliente(4, "Ana Costa", "(11) 66666-6666", "ana@email.com", datetime.now(), "", False),
-        ]
-        
-        # Funcionários
-        self.funcionarios = [
-            Funcionario(1, "Carlos Silva", "(11) 99999-9999", "carlos@barbearia.com", "Barbeiro", datetime.now(), 2500.00, True),
-            Funcionario(2, "Maria Santos", "(11) 88888-8888", "maria@barbearia.com", "Barbeira", datetime.now(), 2500.00, True),
-        ]
-        
-        # Serviços
-        self.servicos = [
-            Servico(1, "Corte Masculino", "Corte de cabelo masculino tradicional", 25.00, 30, True),
-            Servico(2, "Barba", "Aparar e modelar barba", 15.00, 20, True),
-            Servico(3, "Corte + Barba", "Corte de cabelo + barba", 35.00, 45, True),
-        ]
-        
-        # Agendamentos (últimos 30 dias)
-        hoje = datetime.now().date()
-        self.agendamentos = []
-        
-        # Gerar agendamentos de exemplo para os últimos 30 dias
-        for i in range(30):
-            data = hoje - timedelta(days=i)
-            if i < 5:  # Apenas alguns dias com agendamentos
-                for j in range(3):  # 3 agendamentos por dia
-                    cliente_id = (i + j) % len(self.clientes) + 1
-                    funcionario_id = (i + j) % len(self.funcionarios) + 1
-                    servico_id = (i + j) % len(self.servicos) + 1
-                    
-                    servico = next((s for s in self.servicos if s.id == servico_id), None)
-                    if servico:
-                        agendamento = Agendamento(
-                            id=len(self.agendamentos) + 1,
-                            cliente_id=cliente_id,
-                            funcionario_id=funcionario_id,
-                            servico_id=servico_id,
-                            data_agendamento=data,
-                            horario_inicio=datetime.combine(data, datetime.min.time().replace(hour=9 + j)),
-                            horario_fim=datetime.combine(data, datetime.min.time().replace(hour=9 + j, minute=30)),
-                            status="concluido",
-                            valor_total=servico.preco
-                        )
-                        self.agendamentos.append(agendamento)
     
     def on_period_change(self, event):
         """Callback quando o período é alterado"""
