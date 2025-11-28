@@ -1,35 +1,24 @@
 """
-Sistema de Gerenciamento de Dados com Persistência em Arquivos e Threads
+Sistema de Gerenciamento de Dados com Persistência em Banco de Dados
 Gerencia o carregamento, salvamento e exportação de dados usando threads
 para manter a interface responsiva
 """
 
-import json
-import os
 import threading
 from typing import List, Optional, Callable
 from datetime import datetime, date
-from pathlib import Path
+from decimal import Decimal
 from models import Cliente, Funcionario, Servico, Agendamento
+from .database import SessionLocal, init_db
+from .db_models import ClienteDB, FuncionarioDB, ServicoDB, AgendamentoDB
 
 class DataManager:
-    """Gerenciador de dados com persistência em arquivos JSON"""
+    """Gerenciador de dados com persistência em banco de dados SQLite"""
     
-    def __init__(self, data_dir: str = "data"):
-        """
-        Inicializa o gerenciador de dados
-        
-        Args:
-            data_dir: Diretório onde os arquivos serão salvos
-        """
-        self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(exist_ok=True)
-        
-        # Arquivos de dados
-        self.clientes_file = self.data_dir / "clientes.json"
-        self.funcionarios_file = self.data_dir / "funcionarios.json"
-        self.servicos_file = self.data_dir / "servicos.json"
-        self.agendamentos_file = self.data_dir / "agendamentos.json"
+    def __init__(self):
+        """Inicializa o gerenciador de dados e cria as tabelas se não existirem"""
+        # Inicializar banco de dados
+        init_db()
         
         # Lock para operações thread-safe
         self.lock = threading.Lock()
@@ -40,60 +29,125 @@ class DataManager:
         self._servicos: Optional[List[Servico]] = None
         self._agendamentos: Optional[List[Agendamento]] = None
     
-    def _safe_load_json(self, file_path: Path) -> list:
-        """
-        Carrega JSON de forma segura, tratando arquivos vazios ou corrompidos
+    def _db_to_cliente(self, db_obj: ClienteDB) -> Cliente:
+        """Converte ClienteDB para Cliente"""
+        return Cliente(
+            id=db_obj.id,
+            nome=db_obj.nome,
+            telefone=db_obj.telefone,
+            email=db_obj.email,
+            data_cadastro=db_obj.data_cadastro,
+            observacoes=db_obj.observacoes,
+            ativo=db_obj.ativo
+        )
+    
+    def _cliente_to_db(self, cliente: Cliente, db_obj: Optional[ClienteDB] = None) -> ClienteDB:
+        """Converte Cliente para ClienteDB"""
+        if db_obj is None:
+            db_obj = ClienteDB()
         
-        Args:
-            file_path: Caminho do arquivo JSON
-            
-        Returns:
-            Lista de dados (vazia se arquivo não existe, está vazio ou corrompido)
-        """
-        if not file_path.exists():
-            return []
+        db_obj.nome = cliente.nome
+        db_obj.telefone = cliente.telefone
+        db_obj.email = cliente.email
+        db_obj.data_cadastro = cliente.data_cadastro or datetime.now()
+        db_obj.observacoes = cliente.observacoes
+        db_obj.ativo = cliente.ativo
         
-        # Verificar se o arquivo está vazio
-        try:
-            if file_path.stat().st_size == 0:
-                print(f"Arquivo {file_path.name} está vazio. Inicializando como lista vazia.")
-                return []
-        except OSError:
-            # Se não conseguir verificar o tamanho, tenta ler mesmo assim
-            pass
+        return db_obj
+    
+    def _db_to_funcionario(self, db_obj: FuncionarioDB) -> Funcionario:
+        """Converte FuncionarioDB para Funcionario"""
+        return Funcionario(
+            id=db_obj.id,
+            nome=db_obj.nome,
+            telefone=db_obj.telefone,
+            email=db_obj.email,
+            cargo=db_obj.cargo,
+            data_admissao=db_obj.data_admissao,
+            salario=db_obj.salario,
+            ativo=db_obj.ativo
+        )
+    
+    def _funcionario_to_db(self, funcionario: Funcionario, db_obj: Optional[FuncionarioDB] = None) -> FuncionarioDB:
+        """Converte Funcionario para FuncionarioDB"""
+        if db_obj is None:
+            db_obj = FuncionarioDB()
         
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
-                # Verificar se o conteúdo está vazio após remover espaços
-                if not content:
-                    print(f"Arquivo {file_path.name} está vazio. Inicializando como lista vazia.")
-                    return []
-                
-                data = json.loads(content)
-                # Garantir que retorna uma lista
-                if not isinstance(data, list):
-                    print(f"Arquivo {file_path.name} não contém uma lista válida. Inicializando como lista vazia.")
-                    return []
-                
-                return data
-        except json.JSONDecodeError as e:
-            print(f"Erro ao decodificar JSON do arquivo {file_path.name}: {e}")
-            print(f"Arquivo corrompido. Inicializando como lista vazia.")
-            return []
-        except Exception as e:
-            print(f"Erro ao ler arquivo {file_path.name}: {e}")
-            return []
+        db_obj.nome = funcionario.nome
+        db_obj.telefone = funcionario.telefone
+        db_obj.email = funcionario.email
+        db_obj.cargo = funcionario.cargo
+        db_obj.data_admissao = funcionario.data_admissao or datetime.now()
+        db_obj.salario = funcionario.salario
+        db_obj.ativo = funcionario.ativo
+        
+        return db_obj
+    
+    def _db_to_servico(self, db_obj: ServicoDB) -> Servico:
+        """Converte ServicoDB para Servico"""
+        return Servico(
+            id=db_obj.id,
+            nome=db_obj.nome,
+            descricao=db_obj.descricao,
+            preco=Decimal(str(db_obj.preco)),
+            duracao_minutos=db_obj.duracao_minutos,
+            ativo=db_obj.ativo
+        )
+    
+    def _servico_to_db(self, servico: Servico, db_obj: Optional[ServicoDB] = None) -> ServicoDB:
+        """Converte Servico para ServicoDB"""
+        if db_obj is None:
+            db_obj = ServicoDB()
+        
+        db_obj.nome = servico.nome
+        db_obj.descricao = servico.descricao
+        db_obj.preco = float(servico.preco)
+        db_obj.duracao_minutos = servico.duracao_minutos
+        db_obj.ativo = servico.ativo
+        
+        return db_obj
+    
+    def _db_to_agendamento(self, db_obj: AgendamentoDB) -> Agendamento:
+        """Converte AgendamentoDB para Agendamento"""
+        return Agendamento(
+            id=db_obj.id,
+            cliente_id=db_obj.cliente_id,
+            funcionario_id=db_obj.funcionario_id,
+            servico_id=db_obj.servico_id,
+            data_agendamento=db_obj.data_agendamento,
+            horario_inicio=db_obj.horario_inicio,
+            horario_fim=db_obj.horario_fim,
+            status=db_obj.status,
+            observacoes=db_obj.observacoes,
+            valor_total=Decimal(str(db_obj.valor_total))
+        )
+    
+    def _agendamento_to_db(self, agendamento: Agendamento, db_obj: Optional[AgendamentoDB] = None) -> AgendamentoDB:
+        """Converte Agendamento para AgendamentoDB"""
+        if db_obj is None:
+            db_obj = AgendamentoDB()
+        
+        db_obj.cliente_id = agendamento.cliente_id
+        db_obj.funcionario_id = agendamento.funcionario_id
+        db_obj.servico_id = agendamento.servico_id
+        db_obj.data_agendamento = agendamento.data_agendamento
+        db_obj.horario_inicio = agendamento.horario_inicio
+        db_obj.horario_fim = agendamento.horario_fim
+        db_obj.status = agendamento.status
+        db_obj.observacoes = agendamento.observacoes
+        db_obj.valor_total = float(agendamento.valor_total)
+        
+        return db_obj
     
     def load_clientes(self, callback: Optional[Callable] = None) -> List[Cliente]:
         """
-        Carrega clientes do arquivo em thread separada
+        Carrega clientes do banco de dados em thread separada
         
         Args:
             callback: Função chamada após carregar (recebe lista de clientes)
         
         Returns:
-            Lista de clientes (pode estar vazia se arquivo não existe)
+            Lista de clientes (pode estar vazia se não houver dados)
         """
         def _load():
             try:
@@ -103,14 +157,20 @@ class DataManager:
                             callback(self._clientes)
                         return self._clientes
                     
-                    data = self._safe_load_json(self.clientes_file)
-                    self._clientes = [Cliente.from_dict(item) for item in data]
-                    
-                    if callback:
-                        callback(self._clientes)
-                    return self._clientes
+                    db = SessionLocal()
+                    try:
+                        db_clientes = db.query(ClienteDB).all()
+                        self._clientes = [self._db_to_cliente(c) for c in db_clientes]
+                        
+                        if callback:
+                            callback(self._clientes)
+                        return self._clientes
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao carregar clientes: {e}")
+                import traceback
+                traceback.print_exc()
                 self._clientes = []
                 if callback:
                     callback([])
@@ -129,7 +189,7 @@ class DataManager:
     
     def save_clientes(self, clientes: List[Cliente], callback: Optional[Callable] = None):
         """
-        Salva clientes no arquivo em thread separada usando escrita atômica
+        Salva clientes no banco de dados em thread separada
         
         Args:
             clientes: Lista de clientes para salvar
@@ -138,27 +198,47 @@ class DataManager:
         def _save():
             try:
                 with self.lock:
-                    data = [cliente.to_dict() for cliente in clientes]
-                    # Usar arquivo temporário para escrita atômica
-                    temp_file = self.clientes_file.with_suffix('.tmp')
+                    db = SessionLocal()
                     try:
-                        with open(temp_file, 'w', encoding='utf-8') as f:
-                            json.dump(data, f, indent=2, ensure_ascii=False)
-                        # Renomear arquivo temporário para o arquivo final (operação atômica)
-                        temp_file.replace(self.clientes_file)
+                        # Buscar todos os clientes existentes
+                        existing_ids = {c.id for c in db.query(ClienteDB).all()}
+                        clientes_dict = {c.id: c for c in clientes if c.id}
+                        
+                        # Atualizar ou criar clientes
+                        for cliente in clientes:
+                            if cliente.id and cliente.id in existing_ids:
+                                # Atualizar existente
+                                db_cliente = db.query(ClienteDB).filter(ClienteDB.id == cliente.id).first()
+                                if db_cliente:
+                                    self._cliente_to_db(cliente, db_cliente)
+                            else:
+                                # Criar novo
+                                db_cliente = self._cliente_to_db(cliente)
+                                db.add(db_cliente)
+                                # Atualizar o ID do cliente após inserção
+                                db.flush()
+                                cliente.id = db_cliente.id
+                        
+                        # Remover clientes que não estão mais na lista
+                        current_ids = {c.id for c in clientes if c.id}
+                        to_remove = existing_ids - current_ids
+                        if to_remove:
+                            db.query(ClienteDB).filter(ClienteDB.id.in_(to_remove)).delete(synchronize_session=False)
+                        
+                        db.commit()
                         self._clientes = clientes
+                        
                         if callback:
                             callback(True)
                     except Exception as e:
-                        # Se houver erro, tentar remover arquivo temporário
-                        if temp_file.exists():
-                            try:
-                                temp_file.unlink()
-                            except:
-                                pass
+                        db.rollback()
                         raise e
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao salvar clientes: {e}")
+                import traceback
+                traceback.print_exc()
                 if callback:
                     callback(False)
         
@@ -166,7 +246,7 @@ class DataManager:
         thread.start()
     
     def load_funcionarios(self, callback: Optional[Callable] = None) -> List[Funcionario]:
-        """Carrega funcionários do arquivo em thread separada"""
+        """Carrega funcionários do banco de dados em thread separada"""
         def _load():
             try:
                 with self.lock:
@@ -175,14 +255,20 @@ class DataManager:
                             callback(self._funcionarios)
                         return self._funcionarios
                     
-                    data = self._safe_load_json(self.funcionarios_file)
-                    self._funcionarios = [Funcionario.from_dict(item) for item in data]
-                    
-                    if callback:
-                        callback(self._funcionarios)
-                    return self._funcionarios
+                    db = SessionLocal()
+                    try:
+                        db_funcionarios = db.query(FuncionarioDB).all()
+                        self._funcionarios = [self._db_to_funcionario(f) for f in db_funcionarios]
+                        
+                        if callback:
+                            callback(self._funcionarios)
+                        return self._funcionarios
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao carregar funcionários: {e}")
+                import traceback
+                traceback.print_exc()
                 self._funcionarios = []
                 if callback:
                     callback([])
@@ -198,31 +284,44 @@ class DataManager:
         return []
     
     def save_funcionarios(self, funcionarios: List[Funcionario], callback: Optional[Callable] = None):
-        """Salva funcionários no arquivo em thread separada"""
+        """Salva funcionários no banco de dados em thread separada"""
         def _save():
             try:
                 with self.lock:
-                    data = [funcionario.to_dict() for funcionario in funcionarios]
-                    # Usar arquivo temporário para escrita atômica
-                    temp_file = self.funcionarios_file.with_suffix('.tmp')
+                    db = SessionLocal()
                     try:
-                        with open(temp_file, 'w', encoding='utf-8') as f:
-                            json.dump(data, f, indent=2, ensure_ascii=False)
-                        # Renomear arquivo temporário para o arquivo final (operação atômica)
-                        temp_file.replace(self.funcionarios_file)
+                        existing_ids = {f.id for f in db.query(FuncionarioDB).all()}
+                        
+                        for funcionario in funcionarios:
+                            if funcionario.id and funcionario.id in existing_ids:
+                                db_funcionario = db.query(FuncionarioDB).filter(FuncionarioDB.id == funcionario.id).first()
+                                if db_funcionario:
+                                    self._funcionario_to_db(funcionario, db_funcionario)
+                            else:
+                                db_funcionario = self._funcionario_to_db(funcionario)
+                                db.add(db_funcionario)
+                                db.flush()
+                                funcionario.id = db_funcionario.id
+                        
+                        current_ids = {f.id for f in funcionarios if f.id}
+                        to_remove = existing_ids - current_ids
+                        if to_remove:
+                            db.query(FuncionarioDB).filter(FuncionarioDB.id.in_(to_remove)).delete(synchronize_session=False)
+                        
+                        db.commit()
                         self._funcionarios = funcionarios
+                        
                         if callback:
                             callback(True)
                     except Exception as e:
-                        # Se houver erro, tentar remover arquivo temporário
-                        if temp_file.exists():
-                            try:
-                                temp_file.unlink()
-                            except:
-                                pass
+                        db.rollback()
                         raise e
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao salvar funcionários: {e}")
+                import traceback
+                traceback.print_exc()
                 if callback:
                     callback(False)
         
@@ -230,7 +329,7 @@ class DataManager:
         thread.start()
     
     def load_servicos(self, callback: Optional[Callable] = None) -> List[Servico]:
-        """Carrega serviços do arquivo em thread separada"""
+        """Carrega serviços do banco de dados em thread separada"""
         def _load():
             try:
                 with self.lock:
@@ -239,14 +338,20 @@ class DataManager:
                             callback(self._servicos)
                         return self._servicos
                     
-                    data = self._safe_load_json(self.servicos_file)
-                    self._servicos = [Servico.from_dict(item) for item in data]
-                    
-                    if callback:
-                        callback(self._servicos)
-                    return self._servicos
+                    db = SessionLocal()
+                    try:
+                        db_servicos = db.query(ServicoDB).all()
+                        self._servicos = [self._db_to_servico(s) for s in db_servicos]
+                        
+                        if callback:
+                            callback(self._servicos)
+                        return self._servicos
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao carregar serviços: {e}")
+                import traceback
+                traceback.print_exc()
                 self._servicos = []
                 if callback:
                     callback([])
@@ -262,31 +367,44 @@ class DataManager:
         return []
     
     def save_servicos(self, servicos: List[Servico], callback: Optional[Callable] = None):
-        """Salva serviços no arquivo em thread separada"""
+        """Salva serviços no banco de dados em thread separada"""
         def _save():
             try:
                 with self.lock:
-                    data = [servico.to_dict() for servico in servicos]
-                    # Usar arquivo temporário para escrita atômica
-                    temp_file = self.servicos_file.with_suffix('.tmp')
+                    db = SessionLocal()
                     try:
-                        with open(temp_file, 'w', encoding='utf-8') as f:
-                            json.dump(data, f, indent=2, ensure_ascii=False)
-                        # Renomear arquivo temporário para o arquivo final (operação atômica)
-                        temp_file.replace(self.servicos_file)
+                        existing_ids = {s.id for s in db.query(ServicoDB).all()}
+                        
+                        for servico in servicos:
+                            if servico.id and servico.id in existing_ids:
+                                db_servico = db.query(ServicoDB).filter(ServicoDB.id == servico.id).first()
+                                if db_servico:
+                                    self._servico_to_db(servico, db_servico)
+                            else:
+                                db_servico = self._servico_to_db(servico)
+                                db.add(db_servico)
+                                db.flush()
+                                servico.id = db_servico.id
+                        
+                        current_ids = {s.id for s in servicos if s.id}
+                        to_remove = existing_ids - current_ids
+                        if to_remove:
+                            db.query(ServicoDB).filter(ServicoDB.id.in_(to_remove)).delete(synchronize_session=False)
+                        
+                        db.commit()
                         self._servicos = servicos
+                        
                         if callback:
                             callback(True)
                     except Exception as e:
-                        # Se houver erro, tentar remover arquivo temporário
-                        if temp_file.exists():
-                            try:
-                                temp_file.unlink()
-                            except:
-                                pass
+                        db.rollback()
                         raise e
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao salvar serviços: {e}")
+                import traceback
+                traceback.print_exc()
                 if callback:
                     callback(False)
         
@@ -294,22 +412,25 @@ class DataManager:
         thread.start()
     
     def load_agendamentos(self, callback: Optional[Callable] = None, force_reload: bool = False) -> List[Agendamento]:
-        """Carrega agendamentos do arquivo em thread separada"""
+        """Carrega agendamentos do banco de dados em thread separada"""
         def _load():
             try:
                 with self.lock:
-                    # Se force_reload for True, ignora o cache
                     if self._agendamentos is not None and not force_reload:
                         if callback:
                             callback(self._agendamentos)
                         return self._agendamentos
                     
-                    data = self._safe_load_json(self.agendamentos_file)
-                    self._agendamentos = [Agendamento.from_dict(item) for item in data]
-                    
-                    if callback:
-                        callback(self._agendamentos)
-                    return self._agendamentos
+                    db = SessionLocal()
+                    try:
+                        db_agendamentos = db.query(AgendamentoDB).all()
+                        self._agendamentos = [self._db_to_agendamento(a) for a in db_agendamentos]
+                        
+                        if callback:
+                            callback(self._agendamentos)
+                        return self._agendamentos
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao carregar agendamentos: {e}")
                 import traceback
@@ -319,7 +440,6 @@ class DataManager:
                     callback([])
                 return []
         
-        # Sempre carrega do arquivo na primeira vez
         if self._agendamentos is None or force_reload:
             thread = threading.Thread(target=_load, daemon=True)
             thread.start()
@@ -330,30 +450,40 @@ class DataManager:
         return self._agendamentos
     
     def save_agendamentos(self, agendamentos: List[Agendamento], callback: Optional[Callable] = None):
-        """Salva agendamentos no arquivo em thread separada usando escrita atômica"""
+        """Salva agendamentos no banco de dados em thread separada"""
         def _save():
             try:
                 with self.lock:
-                    data = [agendamento.to_dict() for agendamento in agendamentos]
-                    # Usar arquivo temporário para escrita atômica
-                    temp_file = self.agendamentos_file.with_suffix('.tmp')
+                    db = SessionLocal()
                     try:
-                        with open(temp_file, 'w', encoding='utf-8') as f:
-                            json.dump(data, f, indent=2, ensure_ascii=False)
-                        # Renomear arquivo temporário para o arquivo final (operação atômica)
-                        temp_file.replace(self.agendamentos_file)
-                        # Atualiza o cache com os novos dados
+                        existing_ids = {a.id for a in db.query(AgendamentoDB).all()}
+                        
+                        for agendamento in agendamentos:
+                            if agendamento.id and agendamento.id in existing_ids:
+                                db_agendamento = db.query(AgendamentoDB).filter(AgendamentoDB.id == agendamento.id).first()
+                                if db_agendamento:
+                                    self._agendamento_to_db(agendamento, db_agendamento)
+                            else:
+                                db_agendamento = self._agendamento_to_db(agendamento)
+                                db.add(db_agendamento)
+                                db.flush()
+                                agendamento.id = db_agendamento.id
+                        
+                        current_ids = {a.id for a in agendamentos if a.id}
+                        to_remove = existing_ids - current_ids
+                        if to_remove:
+                            db.query(AgendamentoDB).filter(AgendamentoDB.id.in_(to_remove)).delete(synchronize_session=False)
+                        
+                        db.commit()
                         self._agendamentos = agendamentos
+                        
                         if callback:
                             callback(True)
                     except Exception as e:
-                        # Se houver erro, tentar remover arquivo temporário
-                        if temp_file.exists():
-                            try:
-                                temp_file.unlink()
-                            except:
-                                pass
+                        db.rollback()
                         raise e
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Erro ao salvar agendamentos: {e}")
                 import traceback
@@ -488,6 +618,8 @@ class DataManager:
                         callback(True, output_file)
             except Exception as e:
                 print(f"Erro ao exportar relatório: {e}")
+                import traceback
+                traceback.print_exc()
                 if callback:
                     callback(False, str(e))
         
@@ -504,4 +636,3 @@ def get_data_manager() -> DataManager:
     if _data_manager is None:
         _data_manager = DataManager()
     return _data_manager
-

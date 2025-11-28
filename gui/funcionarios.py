@@ -23,7 +23,7 @@ class FuncionariosWidget:
         self.refresh_funcionarios_list()
     
     def load_data_from_file(self):
-        """Carrega dados do arquivo usando thread"""
+        """Carrega dados do banco de dados usando thread"""
         def on_data_loaded(funcionarios_loaded):
             self.funcionarios = funcionarios_loaded
             self.refresh_funcionarios_list()
@@ -347,7 +347,7 @@ class FuncionariosWidget:
             if funcionario:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
                     funcionario.ativo = False
-                    # Salvar no arquivo após exclusão
+                    # Salvar no banco de dados após exclusão
                     def on_save_complete(success):
                         if success and self.dashboard_callback:
                             # Notificar dashboard sobre mudança nos dados
@@ -446,7 +446,7 @@ class FuncionariosWidget:
             self.funcionarios.append(novo_funcionario)
             messagebox.showinfo("Sucesso", "Funcionário cadastrado com sucesso!")
         
-        # Salvar no arquivo usando thread
+        # Salvar no banco de dados usando thread
         def on_save_complete(success):
             if success and self.dashboard_callback:
                 # Notificar dashboard sobre mudança nos dados

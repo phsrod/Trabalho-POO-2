@@ -22,7 +22,7 @@ class ClientesWidget:
         self.refresh_clientes_list()
     
     def load_data_from_file(self):
-        """Carrega dados do arquivo usando thread"""
+        """Carrega dados do banco de dados usando thread"""
         def on_data_loaded(clientes_loaded):
             self.clientes = clientes_loaded
             self.refresh_clientes_list()
@@ -331,7 +331,7 @@ class ClientesWidget:
             if cliente:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
                     cliente.ativo = False
-                    # Salvar no arquivo após exclusão
+                    # Salvar no banco de dados após exclusão
                     def on_save_complete(success):
                         if success and self.dashboard_callback:
                             # Notificar dashboard sobre mudança nos dados
@@ -395,7 +395,7 @@ class ClientesWidget:
             self.clientes.append(novo_cliente)
             messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
         
-        # Salvar no arquivo usando thread
+        # Salvar no banco de dados usando thread
         def on_save_complete(success):
             if success and self.dashboard_callback:
                 # Notificar dashboard sobre mudança nos dados

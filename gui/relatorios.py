@@ -398,7 +398,7 @@ class RelatoriosWidget:
         )
     
     def load_data_from_files(self):
-        """Carrega dados dos arquivos usando threads"""
+        """Carrega dados do banco de dados usando threads"""
         
         def on_clientes_loaded(clientes):
             self.clientes = clientes
@@ -423,7 +423,7 @@ class RelatoriosWidget:
                 # Atualizar estatísticas após carregar todos os dados
                 self.update_statistics()
         
-        # Força recarregamento dos dados do arquivo
+        # Força recarregamento dos dados do banco de dados
         self.data_manager.load_clientes(on_clientes_loaded)
         self.data_manager.load_funcionarios(on_funcionarios_loaded)
         self.data_manager.load_servicos(on_servicos_loaded)
