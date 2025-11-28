@@ -13,9 +13,19 @@
    ```
 
 ### Execução
-```bash
-python main.py
-```
+
+**IMPORTANTE:** É necessário executar o servidor antes da aplicação!
+
+1. **Primeiro, inicie o servidor Flask:**
+   ```bash
+   python server.py
+   ```
+   O servidor será iniciado em `http://localhost:5000`. Mantenha este terminal aberto.
+
+2. **Em outro terminal, execute a aplicação:**
+   ```bash
+   python main.py
+   ```
 
 ## Credenciais de Acesso
 

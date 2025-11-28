@@ -1,12 +1,14 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, date
+import threading
 from .clientes import ClientesWidget
 from .servicos import ServicosWidget
 from .funcionarios import FuncionariosWidget
 from .agendamentos import AgendamentosWidget
 from .relatorios import RelatoriosWidget
 from .styles import StyleManager
+from .loading_widget import LoadingWidget
 from repositories import get_data_manager
 from models import Cliente, Funcionario, Agendamento
 
@@ -32,6 +34,9 @@ class HomeWindow:
         # Flag para controlar atualização periódica
         self.auto_refresh_enabled = True
         self.auto_refresh_interval = 30000  # 30 segundos em milissegundos
+        
+        # ID para cancelar refresh pendente
+        self._refresh_id = None
 
         # Configura os estilos globais
         StyleManager.configure_styles()
@@ -232,30 +237,62 @@ class HomeWindow:
         ).pack(pady=10, padx=5)
     
     def clear_content(self):
-        """Limpa o conteúdo atual"""
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-        if self.current_widget and hasattr(self.current_widget, 'main_frame'):
-            self.current_widget.main_frame.destroy()
+        """Limpa o conteúdo atual de forma otimizada"""
+        try:
+            # Limpar referência primeiro para evitar problemas
+            old_widget = self.current_widget
             self.current_widget = None
+            
+            # Destruir widgets de forma eficiente
+            widgets_to_destroy = list(self.scrollable_frame.winfo_children())
+            for widget in widgets_to_destroy:
+                try:
+                    widget.pack_forget()  # Remove do layout primeiro (mais rápido)
+                except:
+                    pass
+            
+            # Destruir widgets em lote (mais eficiente)
+            for widget in widgets_to_destroy:
+                try:
+                    widget.destroy()
+                except:
+                    pass
+            
+            # Destruir widget antigo se existir
+            if old_widget and hasattr(old_widget, 'main_frame'):
+                try:
+                    old_widget.main_frame.pack_forget()
+                    old_widget.main_frame.destroy()
+                except:
+                    pass
+        except:
+            pass
 
     def show_content(self, widget_class, title):
+        # Limpar conteúdo de forma otimizada
         self.clear_content()
+        
+        # Atualizar título e botão imediatamente
         self.content_title.config(text=title)
         self.close_button.pack(side=tk.RIGHT)
-        # Passar referência do dashboard para o widget poder notificar mudanças
-        self.current_widget = widget_class(self.scrollable_frame, dashboard_callback=self.notify_data_changed)
-        self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        self.canvas.update_idletasks()
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        # Atualizar dashboard quando abrir uma seção (para refletir mudanças)
-        self.refresh_dashboard()
+        
+        # Criar widget diretamente (mais rápido) mas de forma otimizada
+        try:
+            self.current_widget = widget_class(self.scrollable_frame, dashboard_callback=self.notify_data_changed)
+            self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            # Atualizar scroll de forma assíncrona
+            self.window.after(10, lambda: self.canvas.update_idletasks() or self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+            # Atualizar dashboard de forma assíncrona quando abrir uma seção (delay maior para dados carregarem)
+            self.window.after(300, self.refresh_dashboard)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao criar widget: {str(e)}")
 
     def close_current_content(self):
         """Fecha o conteúdo atual e volta para a mensagem de boas-vindas"""
         self.show_welcome_message()
-        # Atualizar dashboard quando fechar uma seção
-        self.refresh_dashboard()
+        # Atualizar dashboard de forma assíncrona quando fechar uma seção (para não travar)
+        if self.window and self.window.winfo_exists():
+            self.window.after(50, self.refresh_dashboard)
     
     def open_clients(self):
         try:
@@ -299,28 +336,63 @@ class HomeWindow:
     
     def load_dashboard_data(self):
         """Carrega os dados do dashboard de forma assíncrona"""
+        # Verificar se o servidor está rodando
+        import requests
+        try:
+            response = requests.get("http://localhost:5000/api/health", timeout=2)
+            if response.status_code != 200:
+                raise Exception("Servidor não respondeu corretamente")
+        except Exception as e:
+            messagebox.showerror(
+                "Servidor não disponível",
+                "O servidor Flask não está rodando!\n\n"
+                "Por favor, execute 'python server.py' em um terminal.\n\n"
+                "A aplicação será fechada."
+            )
+            if self.window:
+                self.window.destroy()
+            if self.root:
+                self.root.quit()
+                self.root.destroy()
+            return
+        
+        # Dashboard não precisa de loading - os cards já mostram "Carregando..."
+        
         def on_clientes_loaded(clientes):
-            self.clientes = clientes
-            self.update_clientes_count()
+            # Não limpar dados antigos - apenas atualizar quando novos dados chegarem
+            if clientes:  # Só atualizar se houver dados
+                self.clientes = clientes
+                # Agendar atualização da GUI na thread principal
+                if self.window and self.window.winfo_exists():
+                    self.window.after(0, self.update_clientes_count)
         
         def on_funcionarios_loaded(funcionarios):
-            self.funcionarios = funcionarios
-            self.update_funcionarios_count()
+            # Não limpar dados antigos - apenas atualizar quando novos dados chegarem
+            if funcionarios:  # Só atualizar se houver dados
+                self.funcionarios = funcionarios
+                # Agendar atualização da GUI na thread principal
+                if self.window and self.window.winfo_exists():
+                    self.window.after(0, self.update_funcionarios_count)
         
         def on_agendamentos_loaded(agendamentos):
-            self.agendamentos = agendamentos
-            self.update_agendamentos_hoje()
-            self.update_receita_mensal()
+            # Não limpar dados antigos - apenas atualizar quando novos dados chegarem
+            if agendamentos is not None:  # Atualizar mesmo se for lista vazia (None significa erro)
+                self.agendamentos = agendamentos
+                # Agendar atualização da GUI na thread principal
+                if self.window and self.window.winfo_exists():
+                    def update_stats():
+                        if self.window and self.window.winfo_exists():
+                            self.update_agendamentos_hoje()
+                            self.update_receita_mensal()
+                    self.window.after(0, update_stats)
         
-        # Inicializar listas vazias
-        self.clientes = []
-        self.funcionarios = []
-        self.agendamentos = []
+        # NÃO inicializar listas vazias - manter dados antigos até novos chegarem
+        # Isso evita que o dashboard fique zerado durante carregamento
         
         # Carregar dados usando threads
         self.data_manager.load_clientes(on_clientes_loaded)
         self.data_manager.load_funcionarios(on_funcionarios_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=True)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=False)
     
     def refresh_dashboard(self):
         """Atualiza os dados do dashboard"""
@@ -335,81 +407,110 @@ class HomeWindow:
     
     def notify_data_changed(self):
         """Método público para ser chamado quando dados são alterados"""
-        # Atualizar dashboard imediatamente quando dados são alterados
-        self.refresh_dashboard()
+        # Atualizar dashboard de forma assíncrona quando dados são alterados (para não travar)
+        # Usar um delay menor para atualização mais rápida
+        if self.window and self.window.winfo_exists():
+            # Cancelar qualquer refresh pendente para evitar múltiplas chamadas
+            if hasattr(self, '_refresh_id'):
+                try:
+                    self.window.after_cancel(self._refresh_id)
+                except:
+                    pass
+            # Agendar novo refresh com delay maior para dar tempo do servidor processar
+            self._refresh_id = self.window.after(500, self.refresh_dashboard)
     
     def update_clientes_count(self):
         """Atualiza o contador de clientes"""
-        if 'clientes' in self.stats_labels:
-            count = len([c for c in self.clientes if c.ativo])
-            self.stats_labels['clientes'].config(text=str(count))
+        try:
+            if not self.window or not self.window.winfo_exists():
+                return
+            if 'clientes' in self.stats_labels and self.stats_labels['clientes'].winfo_exists():
+                count = len([c for c in self.clientes if c.ativo])
+                self.stats_labels['clientes'].config(text=str(count))
+        except:
+            return
     
     def update_funcionarios_count(self):
         """Atualiza o contador de funcionários"""
-        if 'funcionarios' in self.stats_labels:
-            count = len([f for f in self.funcionarios if f.ativo])
-            self.stats_labels['funcionarios'].config(text=str(count))
+        try:
+            if not self.window or not self.window.winfo_exists():
+                return
+            if 'funcionarios' in self.stats_labels and self.stats_labels['funcionarios'].winfo_exists():
+                count = len([f for f in self.funcionarios if f.ativo])
+                self.stats_labels['funcionarios'].config(text=str(count))
+        except:
+            return
     
     def update_agendamentos_hoje(self):
         """Atualiza o contador de agendamentos de hoje"""
-        if 'agendamentos_hoje' in self.stats_labels:
-            hoje = datetime.now().date()
-            count = 0
-            
-            for agendamento in self.agendamentos:
-                if not agendamento.data_agendamento:
-                    continue
+        try:
+            if not self.window or not self.window.winfo_exists():
+                return
+            if 'agendamentos_hoje' in self.stats_labels and self.stats_labels['agendamentos_hoje'].winfo_exists():
+                hoje = datetime.now().date()
+                count = 0
                 
-                # Normalizar data_agendamento para date
-                try:
-                    if isinstance(agendamento.data_agendamento, datetime):
-                        data_agendamento_date = agendamento.data_agendamento.date()
-                    elif isinstance(agendamento.data_agendamento, date):
-                        data_agendamento_date = agendamento.data_agendamento
-                    else:
+                for agendamento in self.agendamentos:
+                    if not agendamento.data_agendamento:
                         continue
                     
-                    # Contar apenas agendamentos de hoje (não cancelados)
-                    if data_agendamento_date == hoje and agendamento.status != 'cancelado':
-                        count += 1
-                except (AttributeError, TypeError, ValueError):
-                    continue
-            
-            self.stats_labels['agendamentos_hoje'].config(text=str(count))
+                    # Normalizar data_agendamento para date
+                    try:
+                        if isinstance(agendamento.data_agendamento, datetime):
+                            data_agendamento_date = agendamento.data_agendamento.date()
+                        elif isinstance(agendamento.data_agendamento, date):
+                            data_agendamento_date = agendamento.data_agendamento
+                        else:
+                            continue
+                        
+                        # Contar apenas agendamentos de hoje (não cancelados)
+                        if data_agendamento_date == hoje and agendamento.status != 'cancelado':
+                            count += 1
+                    except (AttributeError, TypeError, ValueError):
+                        continue
+                
+                self.stats_labels['agendamentos_hoje'].config(text=str(count))
+        except:
+            return
     
     def update_receita_mensal(self):
         """Atualiza a receita mensal"""
-        if 'receita_mensal' in self.stats_labels:
-            hoje = datetime.now()
-            mes_atual = hoje.month
-            ano_atual = hoje.year
-            
-            receita_total = 0.0
-            
-            for agendamento in self.agendamentos:
-                # Apenas agendamentos concluídos
-                if agendamento.status != 'concluido':
-                    continue
+        try:
+            if not self.window or not self.window.winfo_exists():
+                return
+            if 'receita_mensal' in self.stats_labels and self.stats_labels['receita_mensal'].winfo_exists():
+                hoje = datetime.now()
+                mes_atual = hoje.month
+                ano_atual = hoje.year
                 
-                if not agendamento.data_agendamento:
-                    continue
+                receita_total = 0.0
                 
-                # Normalizar data_agendamento para date
-                try:
-                    if isinstance(agendamento.data_agendamento, datetime):
-                        data_agendamento_date = agendamento.data_agendamento.date()
-                    elif isinstance(agendamento.data_agendamento, date):
-                        data_agendamento_date = agendamento.data_agendamento
-                    else:
+                for agendamento in self.agendamentos:
+                    # Apenas agendamentos concluídos
+                    if agendamento.status != 'concluido':
                         continue
                     
-                    # Verificar se é do mês atual
-                    if (isinstance(data_agendamento_date, date) and 
-                        data_agendamento_date.month == mes_atual and 
-                        data_agendamento_date.year == ano_atual):
-                        receita_total += float(agendamento.valor_total)
-                except (AttributeError, TypeError, ValueError):
-                    continue
-            
-            self.stats_labels['receita_mensal'].config(text=f"R$ {receita_total:.2f}")
+                    if not agendamento.data_agendamento:
+                        continue
+                    
+                    # Normalizar data_agendamento para date
+                    try:
+                        if isinstance(agendamento.data_agendamento, datetime):
+                            data_agendamento_date = agendamento.data_agendamento.date()
+                        elif isinstance(agendamento.data_agendamento, date):
+                            data_agendamento_date = agendamento.data_agendamento
+                        else:
+                            continue
+                        
+                        # Verificar se é do mês atual
+                        if (isinstance(data_agendamento_date, date) and 
+                            data_agendamento_date.month == mes_atual and 
+                            data_agendamento_date.year == ano_atual):
+                            receita_total += float(agendamento.valor_total)
+                    except (AttributeError, TypeError, ValueError):
+                        continue
+                
+                self.stats_labels['receita_mensal'].config(text=f"R$ {receita_total:.2f}")
+        except:
+            return
     

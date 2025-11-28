@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, date
 from collections import defaultdict
 from repositories import get_data_manager
 from .validators import bind_date_mask
+from .loading_widget import LoadingWidget
 
 class RelatoriosWidget:
     """Widget de relatórios e estatísticas para uso embutido"""
@@ -18,6 +19,7 @@ class RelatoriosWidget:
         self.agendamentos: List[Agendamento] = []
         self.data_manager = get_data_manager()
         self.dashboard_callback = dashboard_callback  # Callback opcional (não usado aqui, mas aceito para compatibilidade)
+        self.loading_widget = None
         self.create_widget()
         self.load_data_from_files()
     
@@ -230,15 +232,31 @@ class RelatoriosWidget:
             self.data_inicial_var.set(inicio_ano.strftime("%d/%m/%Y"))
             self.data_final_var.set(hoje.strftime("%d/%m/%Y"))
         
-        # Atualizar estatísticas após mudar o período
-        self.update_statistics()
+        # Atualizar estatísticas após mudar o período (verificar se widget ainda existe)
+        try:
+            if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                self.update_statistics()
+        except:
+            pass
     
     def update_statistics(self):
         """Atualiza as estatísticas"""
         try:
+            # Verificar se widgets ainda existem antes de acessar StringVar
+            try:
+                if not hasattr(self, 'main_frame') or not self.main_frame.winfo_exists():
+                    return
+                if not hasattr(self, 'data_inicial_var') or not hasattr(self, 'data_final_var'):
+                    return
+            except:
+                return
+            
             # Obter período
-            data_inicial = datetime.strptime(self.data_inicial_var.get(), "%d/%m/%Y").date()
-            data_final = datetime.strptime(self.data_final_var.get(), "%d/%m/%Y").date()
+            try:
+                data_inicial = datetime.strptime(self.data_inicial_var.get(), "%d/%m/%Y").date()
+                data_final = datetime.strptime(self.data_final_var.get(), "%d/%m/%Y").date()
+            except (ValueError, AttributeError):
+                return
             
             # Filtrar agendamentos do período (apenas concluídos para relatórios)
             agendamentos_periodo = []
@@ -272,18 +290,63 @@ class RelatoriosWidget:
                     # Se houver erro na conversão, pular este agendamento
                     continue
             
-            # Atualizar estatísticas gerais
-            self.clientes_total_label.config(text=str(len([c for c in self.clientes if c.ativo])))
-            self.agendamentos_total_label.config(text=str(len(agendamentos_periodo)))
+            # Verificar se widgets ainda existem antes de atualizar
+            # Verificar se o widget principal ainda existe
+            try:
+                if not hasattr(self, 'main_frame') or not self.main_frame.winfo_exists():
+                    return
+            except:
+                return
             
-            receita_total = sum(float(a.valor_total) for a in agendamentos_periodo)
-            self.receita_total_label.config(text=f"R$ {receita_total:.2f}")
+            # Atualizar estatísticas gerais com verificação individual antes de cada operação
+            try:
+                if hasattr(self, 'clientes_total_label'):
+                    try:
+                        if self.clientes_total_label.winfo_exists():
+                            self.clientes_total_label.config(text=str(len([c for c in self.clientes if c.ativo])))
+                    except:
+                        pass
+            except:
+                pass
             
-            self.funcionarios_total_label.config(text=str(len([f for f in self.funcionarios if f.ativo])))
+            try:
+                if hasattr(self, 'agendamentos_total_label'):
+                    try:
+                        if self.agendamentos_total_label.winfo_exists():
+                            self.agendamentos_total_label.config(text=str(len(agendamentos_periodo)))
+                    except:
+                        pass
+            except:
+                pass
             
-            # Atualizar relatórios específicos
-            self.update_services_report(agendamentos_periodo)
-            self.update_employees_report(agendamentos_periodo)
+            try:
+                if hasattr(self, 'receita_total_label'):
+                    receita_total = sum(float(a.valor_total) for a in agendamentos_periodo)
+                    try:
+                        if self.receita_total_label.winfo_exists():
+                            self.receita_total_label.config(text=f"R$ {receita_total:.2f}")
+                    except:
+                        pass
+            except:
+                pass
+            
+            try:
+                if hasattr(self, 'funcionarios_total_label'):
+                    try:
+                        if self.funcionarios_total_label.winfo_exists():
+                            self.funcionarios_total_label.config(text=str(len([f for f in self.funcionarios if f.ativo])))
+                    except:
+                        pass
+            except:
+                pass
+            
+            # Atualizar relatórios específicos apenas se o widget ainda existir
+            try:
+                if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                    self.update_services_report(agendamentos_periodo)
+                    self.update_employees_report(agendamentos_periodo)
+            except:
+                pass
             
         except ValueError as e:
             messagebox.showerror("Erro", f"Formato de data inválido. Use DD/MM/AAAA\n{str(e)}")
@@ -294,17 +357,31 @@ class RelatoriosWidget:
     
     def update_services_report(self, agendamentos_periodo):
         """Atualiza relatório de serviços"""
+        # Verificar se widget ainda existe
+        try:
+            if not hasattr(self, 'services_tree') or not self.services_tree.winfo_exists():
+                return
+        except:
+            return
+        
         # Limpar lista
-        for item in self.services_tree.get_children():
-            self.services_tree.delete(item)
+        try:
+            for item in self.services_tree.get_children():
+                self.services_tree.delete(item)
+        except:
+            return
         
         if not agendamentos_periodo:
             # Se não houver agendamentos, mostrar mensagem
-            self.services_tree.insert('', 'end', values=(
-                "Nenhum agendamento concluído no período",
-                "0",
-                "R$ 0,00"
-            ))
+            try:
+                if self.services_tree.winfo_exists():
+                    self.services_tree.insert('', 'end', values=(
+                        "Nenhum agendamento concluído no período",
+                        "0",
+                        "R$ 0,00"
+                    ))
+            except:
+                pass
             return
         
         # Contar serviços
@@ -322,26 +399,45 @@ class RelatoriosWidget:
         
         # Adicionar à lista
         for servico_nome, quantidade in sorted_servicos:
-            receita = servico_receita[servico_nome]
-            self.services_tree.insert('', 'end', values=(
-                servico_nome,
-                quantidade,
-                f"R$ {receita:.2f}"
-            ))
+            try:
+                if not self.services_tree.winfo_exists():
+                    return
+                receita = servico_receita[servico_nome]
+                self.services_tree.insert('', 'end', values=(
+                    servico_nome,
+                    quantidade,
+                    f"R$ {receita:.2f}"
+                ))
+            except:
+                return
     
     def update_employees_report(self, agendamentos_periodo):
         """Atualiza relatório de funcionários"""
+        # Verificar se widget ainda existe
+        try:
+            if not hasattr(self, 'employees_tree') or not self.employees_tree.winfo_exists():
+                return
+        except:
+            return
+        
         # Limpar lista
-        for item in self.employees_tree.get_children():
-            self.employees_tree.delete(item)
+        try:
+            for item in self.employees_tree.get_children():
+                self.employees_tree.delete(item)
+        except:
+            return
         
         if not agendamentos_periodo:
             # Se não houver agendamentos, mostrar mensagem
-            self.employees_tree.insert('', 'end', values=(
-                "Nenhum agendamento concluído no período",
-                "0",
-                "R$ 0,00"
-            ))
+            try:
+                if self.employees_tree.winfo_exists():
+                    self.employees_tree.insert('', 'end', values=(
+                        "Nenhum agendamento concluído no período",
+                        "0",
+                        "R$ 0,00"
+                    ))
+            except:
+                pass
             return
         
         # Contar funcionários
@@ -359,12 +455,17 @@ class RelatoriosWidget:
         
         # Adicionar à lista
         for funcionario_nome, quantidade in sorted_funcionarios:
-            receita = funcionario_receita[funcionario_nome]
-            self.employees_tree.insert('', 'end', values=(
-                funcionario_nome,
-                quantidade,
-                f"R$ {receita:.2f}"
-            ))
+            try:
+                if not self.employees_tree.winfo_exists():
+                    return
+                receita = funcionario_receita[funcionario_nome]
+                self.employees_tree.insert('', 'end', values=(
+                    funcionario_nome,
+                    quantidade,
+                    f"R$ {receita:.2f}"
+                ))
+            except:
+                return
     
     def export_relatorio(self):
         """Exporta relatório em arquivo TXT usando thread"""
@@ -386,11 +487,12 @@ class RelatoriosWidget:
         
         messagebox.showinfo("Exportando", "Exportando relatório em segundo plano...")
         
+        root = self.parent.winfo_toplevel()
         def on_export_complete(success, result):
             if success:
-                messagebox.showinfo("Sucesso", f"Relatório exportado com sucesso!\n\n{result}")
+                root.after(0, lambda: messagebox.showinfo("Sucesso", f"Relatório exportado com sucesso!\n\n{result}"))
             else:
-                messagebox.showerror("Erro", f"Erro ao exportar relatório:\n{result}")
+                root.after(0, lambda: messagebox.showerror("Erro", f"Erro ao exportar relatório:\n{result}"))
         
         self.data_manager.export_relatorio_txt(
             self.clientes, self.funcionarios, self.servicos, self.agendamentos,
@@ -399,32 +501,69 @@ class RelatoriosWidget:
     
     def load_data_from_files(self):
         """Carrega dados do banco de dados usando threads"""
+        root = self.parent.winfo_toplevel()
+        
+        # Verificar se precisa mostrar loading (se algum dado não estiver em cache E não há dados ainda)
+        needs_loading = (
+            (self.data_manager._clientes is None or
+             self.data_manager._funcionarios is None or
+             self.data_manager._servicos is None or
+             self.data_manager._agendamentos is None) and
+            (len(self.clientes) == 0 and len(self.funcionarios) == 0 and 
+             len(self.servicos) == 0 and len(self.agendamentos) == 0)
+        )
+        
+        # Para relatórios, mostrar loading na área de estatísticas se existir
+        if needs_loading and self.loading_widget is None:
+            # Tentar encontrar um frame de estatísticas ou usar main_frame
+            stats_frame = None
+            if hasattr(self, 'statistics_frame'):
+                stats_frame = self.statistics_frame
+            elif hasattr(self, 'main_frame'):
+                stats_frame = self.main_frame
+            if stats_frame:
+                self.loading_widget = LoadingWidget(stats_frame, "Carregando relatórios")
+                self.loading_widget.show()
         
         def on_clientes_loaded(clientes):
             self.clientes = clientes
-            check_all_loaded()
+            root.after(0, check_all_loaded)
         
         def on_funcionarios_loaded(funcionarios):
             self.funcionarios = funcionarios
-            check_all_loaded()
+            root.after(0, check_all_loaded)
         
         def on_servicos_loaded(servicos):
             self.servicos = servicos
-            check_all_loaded()
+            root.after(0, check_all_loaded)
         
         def on_agendamentos_loaded(agendamentos):
             self.agendamentos = agendamentos
-            check_all_loaded()
+            root.after(0, check_all_loaded)
         
         loaded_count = [0]
         def check_all_loaded():
+            # Verificar se o widget ainda existe antes de atualizar
+            try:
+                if not hasattr(self, 'main_frame') or not self.main_frame.winfo_exists():
+                    return
+            except:
+                return
+            
             loaded_count[0] += 1
             if loaded_count[0] == 4:
-                # Atualizar estatísticas após carregar todos os dados
-                self.update_statistics()
+                # Esconder loading quando todos os dados carregarem
+                if self.loading_widget:
+                    root.after(0, self.loading_widget.hide)
+                # Verificar novamente antes de atualizar estatísticas
+                try:
+                    if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                        self.update_statistics()
+                except:
+                    pass
         
         # Força recarregamento dos dados do banco de dados
         self.data_manager.load_clientes(on_clientes_loaded)
         self.data_manager.load_funcionarios(on_funcionarios_loaded)
         self.data_manager.load_servicos(on_servicos_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=True)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=False)

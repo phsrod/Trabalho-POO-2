@@ -8,6 +8,7 @@ from .validators import (
     bind_phone_mask, bind_email_validator, bind_money_mask,
     PhoneMask, EmailValidator, MoneyMask
 )
+from .loading_widget import LoadingWidget
 
 class FuncionariosWidget:
     """Widget de gerenciamento de funcionários para uso embutido"""
@@ -18,21 +19,40 @@ class FuncionariosWidget:
         self.current_funcionario: Optional[Funcionario] = None
         self.data_manager = get_data_manager()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
+        self.loading_widget = None
         self.create_widget()
         self.load_data_from_file()
-        self.refresh_funcionarios_list()
+        # Não chamar refresh_funcionarios_list() aqui - será chamado quando os dados carregarem
     
     def load_data_from_file(self):
         """Carrega dados do banco de dados usando thread"""
+        # Verificar se já tem cache e se a lista está vazia - se não tiver, mostrar loading
+        if self.data_manager._funcionarios is None and len(self.funcionarios) == 0:
+            if self.loading_widget is None and hasattr(self, 'treeview_container'):
+                # Esconder treeview temporariamente
+                self.funcionarios_tree.pack_forget()
+                # Mostrar loading no container
+                self.loading_widget = LoadingWidget(self.treeview_container, "Carregando funcionários")
+                self.loading_widget.show()
+        
         def on_data_loaded(funcionarios_loaded):
-            self.funcionarios = funcionarios_loaded
-            self.refresh_funcionarios_list()
+            # Agendar atualização da GUI na thread principal
+            root = self.parent.winfo_toplevel()
+            # Esconder loading e mostrar treeview
+            if self.loading_widget:
+                def hide_and_show():
+                    self.loading_widget.hide()
+                    self.funcionarios_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                root.after(0, hide_and_show)
+            # Atualizar apenas se houver dados válidos (não None)
+            if funcionarios_loaded is not None:
+                self.funcionarios = funcionarios_loaded
+                root.after(0, self.refresh_funcionarios_list)
+            # Se funcionarios_loaded for None, manter dados antigos (não atualizar)
         
-        # Mostra indicador de carregamento
-        self.funcionarios = []
-        self.refresh_funcionarios_list()
-        
-        # Carrega dados em thread
+        # NÃO limpar lista - manter dados antigos visíveis até novos chegarem
+        # Isso evita que a interface fique "nugada" durante carregamento
+        # Carrega dados em thread (se já houver cache, será retornado imediatamente)
         self.data_manager.load_funcionarios(on_data_loaded)
     
     def create_widget(self):
@@ -108,9 +128,13 @@ class FuncionariosWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(5, 0))
         
+        # Frame container para treeview/loading (alterna entre eles)
+        self.treeview_container = ttk.Frame(list_frame)
+        self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        
         # Treeview para lista de funcionários
         columns = ('Nome', 'Cargo', 'Telefone', 'Salário', 'Status')
-        self.funcionarios_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=12)
+        self.funcionarios_tree = ttk.Treeview(self.treeview_container, columns=columns, show='headings', height=12)
         
         # Configurar colunas
         self.funcionarios_tree.heading('Nome', text='Nome')
@@ -126,12 +150,12 @@ class FuncionariosWidget:
         self.funcionarios_tree.column('Status', width=60)
         
         # Scrollbar
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.funcionarios_tree.yview)
+        scrollbar = ttk.Scrollbar(self.treeview_container, orient=tk.VERTICAL, command=self.funcionarios_tree.yview)
         self.funcionarios_tree.configure(yscrollcommand=scrollbar.set)
         
         # Pack treeview e scrollbar
-        self.funcionarios_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=(0, 15))
+        self.funcionarios_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind seleção
         self.funcionarios_tree.bind('<<TreeviewSelect>>', self.on_funcionario_select)
@@ -234,9 +258,19 @@ class FuncionariosWidget:
     
     def refresh_funcionarios_list(self):
         """Atualiza a lista de funcionários"""
+        # Verificar se o widget ainda existe
+        try:
+            if not hasattr(self, 'funcionarios_tree') or not self.funcionarios_tree.winfo_exists():
+                return
+        except:
+            return
+        
         # Limpar lista
-        for item in self.funcionarios_tree.get_children():
-            self.funcionarios_tree.delete(item)
+        try:
+            for item in self.funcionarios_tree.get_children():
+                self.funcionarios_tree.delete(item)
+        except:
+            return
         
         # Adicionar funcionários
         for funcionario in self.funcionarios:
@@ -348,10 +382,11 @@ class FuncionariosWidget:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
                     funcionario.ativo = False
                     # Salvar no banco de dados após exclusão
+                    root = self.parent.winfo_toplevel()
                     def on_save_complete(success):
                         if success and self.dashboard_callback:
-                            # Notificar dashboard sobre mudança nos dados
-                            self.dashboard_callback()
+                            # Agendar notificação do dashboard na thread principal
+                            root.after(0, self.dashboard_callback)
                     
                     self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
                     self.refresh_funcionarios_list()
@@ -447,10 +482,11 @@ class FuncionariosWidget:
             messagebox.showinfo("Sucesso", "Funcionário cadastrado com sucesso!")
         
         # Salvar no banco de dados usando thread
+        root = self.parent.winfo_toplevel()
         def on_save_complete(success):
             if success and self.dashboard_callback:
-                # Notificar dashboard sobre mudança nos dados
-                self.dashboard_callback()
+                # Agendar notificação do dashboard na thread principal
+                root.after(0, self.dashboard_callback)
         
         self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
         self.refresh_funcionarios_list()

@@ -219,6 +219,23 @@ class LoginWindow:
             return
 
         if username == "admin" and password == "admin123":
+            # Verificar se o servidor está rodando antes de permitir login
+            import requests
+            try:
+                response = requests.get("http://localhost:5000/api/health", timeout=2)
+                if response.status_code != 200:
+                    raise Exception("Servidor não respondeu corretamente")
+            except Exception as e:
+                messagebox.showerror(
+                    "Servidor não disponível",
+                    "O servidor Flask não está rodando!\n\n"
+                    "Por favor, execute 'python server.py' em um terminal antes de fazer login.\n\n"
+                    "O servidor deve estar rodando em http://localhost:5000"
+                )
+                self.password_entry.delete(0, tk.END)
+                self.password_entry.focus()
+                return
+            
             messagebox.showinfo("Sucesso", "Login realizado com sucesso!")
             for widget in self.window.winfo_children():
                 widget.destroy()

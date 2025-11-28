@@ -8,6 +8,7 @@ from .validators import (
     bind_money_mask, bind_number_only,
     MoneyMask
 )
+from .loading_widget import LoadingWidget
 
 class ServicosWidget:
     """Widget de gerenciamento de serviços para uso embutido"""
@@ -18,21 +19,40 @@ class ServicosWidget:
         self.current_servico: Optional[Servico] = None
         self.data_manager = get_data_manager()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
+        self.loading_widget = None
         self.create_widget()
         self.load_data_from_file()
-        self.refresh_servicos_list()
+        # Não chamar refresh_servicos_list() aqui - será chamado quando os dados carregarem
     
     def load_data_from_file(self):
         """Carrega dados do banco de dados usando thread"""
+        # Verificar se já tem cache e se a lista está vazia - se não tiver, mostrar loading
+        if self.data_manager._servicos is None and len(self.servicos) == 0:
+            if self.loading_widget is None and hasattr(self, 'treeview_container'):
+                # Esconder treeview temporariamente
+                self.servicos_tree.pack_forget()
+                # Mostrar loading no container
+                self.loading_widget = LoadingWidget(self.treeview_container, "Carregando serviços")
+                self.loading_widget.show()
+        
         def on_data_loaded(servicos_loaded):
-            self.servicos = servicos_loaded
-            self.refresh_servicos_list()
+            # Agendar atualização da GUI na thread principal
+            root = self.parent.winfo_toplevel()
+            # Esconder loading e mostrar treeview
+            if self.loading_widget:
+                def hide_and_show():
+                    self.loading_widget.hide()
+                    self.servicos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                root.after(0, hide_and_show)
+            # Atualizar apenas se houver dados válidos (não None)
+            if servicos_loaded is not None:
+                self.servicos = servicos_loaded
+                root.after(0, self.refresh_servicos_list)
+            # Se servicos_loaded for None, manter dados antigos (não atualizar)
         
-        # Mostra indicador de carregamento
-        self.servicos = []
-        self.refresh_servicos_list()
-        
-        # Carrega dados em thread
+        # NÃO limpar lista - manter dados antigos visíveis até novos chegarem
+        # Isso evita que a interface fique "nugada" durante carregamento
+        # Carrega dados em thread (se já houver cache, será retornado imediatamente)
         self.data_manager.load_servicos(on_data_loaded)
     
     def create_widget(self):
@@ -108,9 +128,13 @@ class ServicosWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(5, 0))
         
+        # Frame container para treeview/loading (alterna entre eles)
+        self.treeview_container = ttk.Frame(list_frame)
+        self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        
         # Treeview para lista de serviços
         columns = ('Nome', 'Preço', 'Duração', 'Status')
-        self.servicos_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=12)
+        self.servicos_tree = ttk.Treeview(self.treeview_container, columns=columns, show='headings', height=12)
         
         # Configurar colunas
         self.servicos_tree.heading('Nome', text='Nome')
@@ -124,12 +148,12 @@ class ServicosWidget:
         self.servicos_tree.column('Status', width=60)
         
         # Scrollbar
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.servicos_tree.yview)
+        scrollbar = ttk.Scrollbar(self.treeview_container, orient=tk.VERTICAL, command=self.servicos_tree.yview)
         self.servicos_tree.configure(yscrollcommand=scrollbar.set)
         
         # Pack treeview e scrollbar
-        self.servicos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=(0, 15))
+        self.servicos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind seleção
         self.servicos_tree.bind('<<TreeviewSelect>>', self.on_servico_select)
@@ -216,9 +240,19 @@ class ServicosWidget:
     
     def refresh_servicos_list(self):
         """Atualiza a lista de serviços"""
+        # Verificar se o widget ainda existe
+        try:
+            if not hasattr(self, 'servicos_tree') or not self.servicos_tree.winfo_exists():
+                return
+        except:
+            return
+        
         # Limpar lista
-        for item in self.servicos_tree.get_children():
-            self.servicos_tree.delete(item)
+        try:
+            for item in self.servicos_tree.get_children():
+                self.servicos_tree.delete(item)
+        except:
+            return
         
         # Adicionar serviços
         for servico in self.servicos:
@@ -301,10 +335,11 @@ class ServicosWidget:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o serviço {servico.nome}?"):
                     servico.ativo = False
                     # Salvar no banco de dados após exclusão
+                    root = self.parent.winfo_toplevel()
                     def on_save_complete(success):
                         if success and self.dashboard_callback:
-                            # Notificar dashboard sobre mudança nos dados
-                            self.dashboard_callback()
+                            # Agendar notificação do dashboard na thread principal
+                            root.after(0, self.dashboard_callback)
                     
                     self.data_manager.save_servicos(self.servicos, on_save_complete)
                     self.refresh_servicos_list()
@@ -385,10 +420,11 @@ class ServicosWidget:
             messagebox.showinfo("Sucesso", "Serviço cadastrado com sucesso!")
         
         # Salvar no banco de dados usando thread
+        root = self.parent.winfo_toplevel()
         def on_save_complete(success):
             if success and self.dashboard_callback:
-                # Notificar dashboard sobre mudança nos dados
-                self.dashboard_callback()
+                # Agendar notificação do dashboard na thread principal
+                root.after(0, self.dashboard_callback)
         
         self.data_manager.save_servicos(self.servicos, on_save_complete)
         self.refresh_servicos_list()

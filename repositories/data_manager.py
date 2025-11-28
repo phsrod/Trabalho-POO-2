@@ -1,24 +1,30 @@
 """
-Sistema de Gerenciamento de Dados com Persistência em Banco de Dados
+Sistema de Gerenciamento de Dados com Persistência via API REST
 Gerencia o carregamento, salvamento e exportação de dados usando threads
-para manter a interface responsiva
+para manter a interface responsiva. Comunica-se com o servidor Flask via HTTP.
 """
 
 import threading
+import requests
 from typing import List, Optional, Callable
 from datetime import datetime, date
 from decimal import Decimal
 from models import Cliente, Funcionario, Servico, Agendamento
-from .database import SessionLocal, init_db
-from .db_models import ClienteDB, FuncionarioDB, ServicoDB, AgendamentoDB
+
+# URL base do servidor
+SERVER_URL = "http://localhost:5000"
 
 class DataManager:
-    """Gerenciador de dados com persistência em banco de dados SQLite"""
+    """Gerenciador de dados que se comunica com servidor Flask via HTTP"""
     
-    def __init__(self):
-        """Inicializa o gerenciador de dados e cria as tabelas se não existirem"""
-        # Inicializar banco de dados
-        init_db()
+    def __init__(self, server_url: str = SERVER_URL):
+        """
+        Inicializa o gerenciador de dados
+        
+        Args:
+            server_url: URL do servidor Flask (padrão: http://localhost:5000)
+        """
+        self.server_url = server_url
         
         # Lock para operações thread-safe
         self.lock = threading.Lock()
@@ -29,119 +35,17 @@ class DataManager:
         self._servicos: Optional[List[Servico]] = None
         self._agendamentos: Optional[List[Agendamento]] = None
     
-    def _db_to_cliente(self, db_obj: ClienteDB) -> Cliente:
-        """Converte ClienteDB para Cliente"""
-        return Cliente(
-            id=db_obj.id,
-            nome=db_obj.nome,
-            telefone=db_obj.telefone,
-            email=db_obj.email,
-            data_cadastro=db_obj.data_cadastro,
-            observacoes=db_obj.observacoes,
-            ativo=db_obj.ativo
-        )
-    
-    def _cliente_to_db(self, cliente: Cliente, db_obj: Optional[ClienteDB] = None) -> ClienteDB:
-        """Converte Cliente para ClienteDB"""
-        if db_obj is None:
-            db_obj = ClienteDB()
-        
-        db_obj.nome = cliente.nome
-        db_obj.telefone = cliente.telefone
-        db_obj.email = cliente.email
-        db_obj.data_cadastro = cliente.data_cadastro or datetime.now()
-        db_obj.observacoes = cliente.observacoes
-        db_obj.ativo = cliente.ativo
-        
-        return db_obj
-    
-    def _db_to_funcionario(self, db_obj: FuncionarioDB) -> Funcionario:
-        """Converte FuncionarioDB para Funcionario"""
-        return Funcionario(
-            id=db_obj.id,
-            nome=db_obj.nome,
-            telefone=db_obj.telefone,
-            email=db_obj.email,
-            cargo=db_obj.cargo,
-            data_admissao=db_obj.data_admissao,
-            salario=db_obj.salario,
-            ativo=db_obj.ativo
-        )
-    
-    def _funcionario_to_db(self, funcionario: Funcionario, db_obj: Optional[FuncionarioDB] = None) -> FuncionarioDB:
-        """Converte Funcionario para FuncionarioDB"""
-        if db_obj is None:
-            db_obj = FuncionarioDB()
-        
-        db_obj.nome = funcionario.nome
-        db_obj.telefone = funcionario.telefone
-        db_obj.email = funcionario.email
-        db_obj.cargo = funcionario.cargo
-        db_obj.data_admissao = funcionario.data_admissao or datetime.now()
-        db_obj.salario = funcionario.salario
-        db_obj.ativo = funcionario.ativo
-        
-        return db_obj
-    
-    def _db_to_servico(self, db_obj: ServicoDB) -> Servico:
-        """Converte ServicoDB para Servico"""
-        return Servico(
-            id=db_obj.id,
-            nome=db_obj.nome,
-            descricao=db_obj.descricao,
-            preco=Decimal(str(db_obj.preco)),
-            duracao_minutos=db_obj.duracao_minutos,
-            ativo=db_obj.ativo
-        )
-    
-    def _servico_to_db(self, servico: Servico, db_obj: Optional[ServicoDB] = None) -> ServicoDB:
-        """Converte Servico para ServicoDB"""
-        if db_obj is None:
-            db_obj = ServicoDB()
-        
-        db_obj.nome = servico.nome
-        db_obj.descricao = servico.descricao
-        db_obj.preco = float(servico.preco)
-        db_obj.duracao_minutos = servico.duracao_minutos
-        db_obj.ativo = servico.ativo
-        
-        return db_obj
-    
-    def _db_to_agendamento(self, db_obj: AgendamentoDB) -> Agendamento:
-        """Converte AgendamentoDB para Agendamento"""
-        return Agendamento(
-            id=db_obj.id,
-            cliente_id=db_obj.cliente_id,
-            funcionario_id=db_obj.funcionario_id,
-            servico_id=db_obj.servico_id,
-            data_agendamento=db_obj.data_agendamento,
-            horario_inicio=db_obj.horario_inicio,
-            horario_fim=db_obj.horario_fim,
-            status=db_obj.status,
-            observacoes=db_obj.observacoes,
-            valor_total=Decimal(str(db_obj.valor_total))
-        )
-    
-    def _agendamento_to_db(self, agendamento: Agendamento, db_obj: Optional[AgendamentoDB] = None) -> AgendamentoDB:
-        """Converte Agendamento para AgendamentoDB"""
-        if db_obj is None:
-            db_obj = AgendamentoDB()
-        
-        db_obj.cliente_id = agendamento.cliente_id
-        db_obj.funcionario_id = agendamento.funcionario_id
-        db_obj.servico_id = agendamento.servico_id
-        db_obj.data_agendamento = agendamento.data_agendamento
-        db_obj.horario_inicio = agendamento.horario_inicio
-        db_obj.horario_fim = agendamento.horario_fim
-        db_obj.status = agendamento.status
-        db_obj.observacoes = agendamento.observacoes
-        db_obj.valor_total = float(agendamento.valor_total)
-        
-        return db_obj
+    def _check_server(self) -> bool:
+        """Verifica se o servidor está rodando"""
+        try:
+            response = requests.get(f"{self.server_url}/api/health", timeout=2)
+            return response.status_code == 200
+        except:
+            return False
     
     def load_clientes(self, callback: Optional[Callable] = None) -> List[Cliente]:
         """
-        Carrega clientes do banco de dados em thread separada
+        Carrega clientes do servidor em thread separada
         
         Args:
             callback: Função chamada após carregar (recebe lista de clientes)
@@ -157,21 +61,30 @@ class DataManager:
                             callback(self._clientes)
                         return self._clientes
                     
-                    db = SessionLocal()
-                    try:
-                        db_clientes = db.query(ClienteDB).all()
-                        self._clientes = [self._db_to_cliente(c) for c in db_clientes]
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
+                        # NÃO seta cache como lista vazia - mantém None para tentar novamente
+                        if callback:
+                            callback([])
+                        return []
+                    
+                    response = requests.get(f"{self.server_url}/api/clientes", timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        self._clientes = [Cliente.from_dict(item) for item in data]
                         if callback:
                             callback(self._clientes)
                         return self._clientes
-                    finally:
-                        db.close()
+                    else:
+                        # Erro na requisição - não seta cache para permitir nova tentativa
+                        if callback:
+                            callback([])
+                        return []
             except Exception as e:
                 print(f"Erro ao carregar clientes: {e}")
                 import traceback
                 traceback.print_exc()
-                self._clientes = []
+                # NÃO seta cache como lista vazia - mantém None para tentar novamente quando servidor voltar
                 if callback:
                     callback([])
                 return []
@@ -189,7 +102,7 @@ class DataManager:
     
     def save_clientes(self, clientes: List[Cliente], callback: Optional[Callable] = None):
         """
-        Salva clientes no banco de dados em thread separada
+        Salva clientes no servidor em thread separada
         
         Args:
             clientes: Lista de clientes para salvar
@@ -198,43 +111,31 @@ class DataManager:
         def _save():
             try:
                 with self.lock:
-                    db = SessionLocal()
-                    try:
-                        # Buscar todos os clientes existentes
-                        existing_ids = {c.id for c in db.query(ClienteDB).all()}
-                        clientes_dict = {c.id: c for c in clientes if c.id}
-                        
-                        # Atualizar ou criar clientes
-                        for cliente in clientes:
-                            if cliente.id and cliente.id in existing_ids:
-                                # Atualizar existente
-                                db_cliente = db.query(ClienteDB).filter(ClienteDB.id == cliente.id).first()
-                                if db_cliente:
-                                    self._cliente_to_db(cliente, db_cliente)
-                            else:
-                                # Criar novo
-                                db_cliente = self._cliente_to_db(cliente)
-                                db.add(db_cliente)
-                                # Atualizar o ID do cliente após inserção
-                                db.flush()
-                                cliente.id = db_cliente.id
-                        
-                        # Remover clientes que não estão mais na lista
-                        current_ids = {c.id for c in clientes if c.id}
-                        to_remove = existing_ids - current_ids
-                        if to_remove:
-                            db.query(ClienteDB).filter(ClienteDB.id.in_(to_remove)).delete(synchronize_session=False)
-                        
-                        db.commit()
-                        self._clientes = clientes
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
                         if callback:
-                            callback(True)
-                    except Exception as e:
-                        db.rollback()
-                        raise e
-                    finally:
-                        db.close()
+                            callback(False)
+                        return
+                    
+                    data = [cliente.to_dict() for cliente in clientes]
+                    response = requests.post(
+                        f"{self.server_url}/api/clientes",
+                        json={'clientes': data},
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            self._clientes = clientes
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
             except Exception as e:
                 print(f"Erro ao salvar clientes: {e}")
                 import traceback
@@ -246,7 +147,7 @@ class DataManager:
         thread.start()
     
     def load_funcionarios(self, callback: Optional[Callable] = None) -> List[Funcionario]:
-        """Carrega funcionários do banco de dados em thread separada"""
+        """Carrega funcionários do servidor em thread separada"""
         def _load():
             try:
                 with self.lock:
@@ -255,21 +156,30 @@ class DataManager:
                             callback(self._funcionarios)
                         return self._funcionarios
                     
-                    db = SessionLocal()
-                    try:
-                        db_funcionarios = db.query(FuncionarioDB).all()
-                        self._funcionarios = [self._db_to_funcionario(f) for f in db_funcionarios]
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
+                        # NÃO seta cache como lista vazia - mantém None para tentar novamente
+                        if callback:
+                            callback([])
+                        return []
+                    
+                    response = requests.get(f"{self.server_url}/api/funcionarios", timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        self._funcionarios = [Funcionario.from_dict(item) for item in data]
                         if callback:
                             callback(self._funcionarios)
                         return self._funcionarios
-                    finally:
-                        db.close()
+                    else:
+                        # Erro na requisição - não seta cache para permitir nova tentativa
+                        if callback:
+                            callback([])
+                        return []
             except Exception as e:
                 print(f"Erro ao carregar funcionários: {e}")
                 import traceback
                 traceback.print_exc()
-                self._funcionarios = []
+                # NÃO seta cache como lista vazia - mantém None para tentar novamente quando servidor voltar
                 if callback:
                     callback([])
                 return []
@@ -284,40 +194,35 @@ class DataManager:
         return []
     
     def save_funcionarios(self, funcionarios: List[Funcionario], callback: Optional[Callable] = None):
-        """Salva funcionários no banco de dados em thread separada"""
+        """Salva funcionários no servidor em thread separada"""
         def _save():
             try:
                 with self.lock:
-                    db = SessionLocal()
-                    try:
-                        existing_ids = {f.id for f in db.query(FuncionarioDB).all()}
-                        
-                        for funcionario in funcionarios:
-                            if funcionario.id and funcionario.id in existing_ids:
-                                db_funcionario = db.query(FuncionarioDB).filter(FuncionarioDB.id == funcionario.id).first()
-                                if db_funcionario:
-                                    self._funcionario_to_db(funcionario, db_funcionario)
-                            else:
-                                db_funcionario = self._funcionario_to_db(funcionario)
-                                db.add(db_funcionario)
-                                db.flush()
-                                funcionario.id = db_funcionario.id
-                        
-                        current_ids = {f.id for f in funcionarios if f.id}
-                        to_remove = existing_ids - current_ids
-                        if to_remove:
-                            db.query(FuncionarioDB).filter(FuncionarioDB.id.in_(to_remove)).delete(synchronize_session=False)
-                        
-                        db.commit()
-                        self._funcionarios = funcionarios
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
                         if callback:
-                            callback(True)
-                    except Exception as e:
-                        db.rollback()
-                        raise e
-                    finally:
-                        db.close()
+                            callback(False)
+                        return
+                    
+                    data = [funcionario.to_dict() for funcionario in funcionarios]
+                    response = requests.post(
+                        f"{self.server_url}/api/funcionarios",
+                        json={'funcionarios': data},
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            self._funcionarios = funcionarios
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
             except Exception as e:
                 print(f"Erro ao salvar funcionários: {e}")
                 import traceback
@@ -329,7 +234,7 @@ class DataManager:
         thread.start()
     
     def load_servicos(self, callback: Optional[Callable] = None) -> List[Servico]:
-        """Carrega serviços do banco de dados em thread separada"""
+        """Carrega serviços do servidor em thread separada"""
         def _load():
             try:
                 with self.lock:
@@ -338,21 +243,30 @@ class DataManager:
                             callback(self._servicos)
                         return self._servicos
                     
-                    db = SessionLocal()
-                    try:
-                        db_servicos = db.query(ServicoDB).all()
-                        self._servicos = [self._db_to_servico(s) for s in db_servicos]
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
+                        # NÃO seta cache como lista vazia - mantém None para tentar novamente
+                        if callback:
+                            callback([])
+                        return []
+                    
+                    response = requests.get(f"{self.server_url}/api/servicos", timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        self._servicos = [Servico.from_dict(item) for item in data]
                         if callback:
                             callback(self._servicos)
                         return self._servicos
-                    finally:
-                        db.close()
+                    else:
+                        # Erro na requisição - não seta cache para permitir nova tentativa
+                        if callback:
+                            callback([])
+                        return []
             except Exception as e:
                 print(f"Erro ao carregar serviços: {e}")
                 import traceback
                 traceback.print_exc()
-                self._servicos = []
+                # NÃO seta cache como lista vazia - mantém None para tentar novamente quando servidor voltar
                 if callback:
                     callback([])
                 return []
@@ -367,40 +281,35 @@ class DataManager:
         return []
     
     def save_servicos(self, servicos: List[Servico], callback: Optional[Callable] = None):
-        """Salva serviços no banco de dados em thread separada"""
+        """Salva serviços no servidor em thread separada"""
         def _save():
             try:
                 with self.lock:
-                    db = SessionLocal()
-                    try:
-                        existing_ids = {s.id for s in db.query(ServicoDB).all()}
-                        
-                        for servico in servicos:
-                            if servico.id and servico.id in existing_ids:
-                                db_servico = db.query(ServicoDB).filter(ServicoDB.id == servico.id).first()
-                                if db_servico:
-                                    self._servico_to_db(servico, db_servico)
-                            else:
-                                db_servico = self._servico_to_db(servico)
-                                db.add(db_servico)
-                                db.flush()
-                                servico.id = db_servico.id
-                        
-                        current_ids = {s.id for s in servicos if s.id}
-                        to_remove = existing_ids - current_ids
-                        if to_remove:
-                            db.query(ServicoDB).filter(ServicoDB.id.in_(to_remove)).delete(synchronize_session=False)
-                        
-                        db.commit()
-                        self._servicos = servicos
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
                         if callback:
-                            callback(True)
-                    except Exception as e:
-                        db.rollback()
-                        raise e
-                    finally:
-                        db.close()
+                            callback(False)
+                        return
+                    
+                    data = [servico.to_dict() for servico in servicos]
+                    response = requests.post(
+                        f"{self.server_url}/api/servicos",
+                        json={'servicos': data},
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            self._servicos = servicos
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
             except Exception as e:
                 print(f"Erro ao salvar serviços: {e}")
                 import traceback
@@ -412,7 +321,7 @@ class DataManager:
         thread.start()
     
     def load_agendamentos(self, callback: Optional[Callable] = None, force_reload: bool = False) -> List[Agendamento]:
-        """Carrega agendamentos do banco de dados em thread separada"""
+        """Carrega agendamentos do servidor em thread separada"""
         def _load():
             try:
                 with self.lock:
@@ -421,26 +330,39 @@ class DataManager:
                             callback(self._agendamentos)
                         return self._agendamentos
                     
-                    db = SessionLocal()
-                    try:
-                        db_agendamentos = db.query(AgendamentoDB).all()
-                        self._agendamentos = [self._db_to_agendamento(a) for a in db_agendamentos]
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
+                        # NÃO seta cache como lista vazia - mantém None para tentar novamente
+                        if callback:
+                            callback([])
+                        return []
+                    
+                    response = requests.get(f"{self.server_url}/api/agendamentos", timeout=10)
+                    if response.status_code == 200:
+                        data = response.json()
+                        self._agendamentos = [Agendamento.from_dict(item) for item in data]
                         if callback:
                             callback(self._agendamentos)
                         return self._agendamentos
-                    finally:
-                        db.close()
+                    else:
+                        # Erro na requisição - não seta cache para permitir nova tentativa
+                        if callback:
+                            callback([])
+                        return []
             except Exception as e:
                 print(f"Erro ao carregar agendamentos: {e}")
                 import traceback
                 traceback.print_exc()
-                self._agendamentos = []
+                # NÃO seta cache como lista vazia - mantém None para tentar novamente quando servidor voltar
                 if callback:
                     callback([])
                 return []
         
-        if self._agendamentos is None or force_reload:
+        # Se force_reload, limpa o cache antes de recarregar
+        if force_reload:
+            self._agendamentos = None
+        
+        if self._agendamentos is None:
             thread = threading.Thread(target=_load, daemon=True)
             thread.start()
             return []
@@ -450,40 +372,35 @@ class DataManager:
         return self._agendamentos
     
     def save_agendamentos(self, agendamentos: List[Agendamento], callback: Optional[Callable] = None):
-        """Salva agendamentos no banco de dados em thread separada"""
+        """Salva agendamentos no servidor em thread separada"""
         def _save():
             try:
                 with self.lock:
-                    db = SessionLocal()
-                    try:
-                        existing_ids = {a.id for a in db.query(AgendamentoDB).all()}
-                        
-                        for agendamento in agendamentos:
-                            if agendamento.id and agendamento.id in existing_ids:
-                                db_agendamento = db.query(AgendamentoDB).filter(AgendamentoDB.id == agendamento.id).first()
-                                if db_agendamento:
-                                    self._agendamento_to_db(agendamento, db_agendamento)
-                            else:
-                                db_agendamento = self._agendamento_to_db(agendamento)
-                                db.add(db_agendamento)
-                                db.flush()
-                                agendamento.id = db_agendamento.id
-                        
-                        current_ids = {a.id for a in agendamentos if a.id}
-                        to_remove = existing_ids - current_ids
-                        if to_remove:
-                            db.query(AgendamentoDB).filter(AgendamentoDB.id.in_(to_remove)).delete(synchronize_session=False)
-                        
-                        db.commit()
-                        self._agendamentos = agendamentos
-                        
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando! Execute 'python server.py' primeiro.")
                         if callback:
-                            callback(True)
-                    except Exception as e:
-                        db.rollback()
-                        raise e
-                    finally:
-                        db.close()
+                            callback(False)
+                        return
+                    
+                    data = [agendamento.to_dict() for agendamento in agendamentos]
+                    response = requests.post(
+                        f"{self.server_url}/api/agendamentos",
+                        json={'agendamentos': data},
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            self._agendamentos = agendamentos
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
             except Exception as e:
                 print(f"Erro ao salvar agendamentos: {e}")
                 import traceback

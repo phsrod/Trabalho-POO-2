@@ -7,6 +7,7 @@ from .validators import (
     bind_phone_mask, bind_email_validator, 
     PhoneMask, EmailValidator
 )
+from .loading_widget import LoadingWidget
 
 class ClientesWidget:
     """Widget de gerenciamento de clientes para uso embutido"""
@@ -17,21 +18,40 @@ class ClientesWidget:
         self.current_cliente: Optional[Cliente] = None
         self.data_manager = get_data_manager()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
+        self.loading_widget = None
         self.create_widget()
         self.load_data_from_file()
-        self.refresh_clientes_list()
+        # Não chamar refresh_clientes_list() aqui - será chamado quando os dados carregarem
     
     def load_data_from_file(self):
         """Carrega dados do banco de dados usando thread"""
+        # Verificar se já tem cache e se a lista está vazia - se não tiver, mostrar loading
+        if self.data_manager._clientes is None and len(self.clientes) == 0:
+            if self.loading_widget is None and hasattr(self, 'treeview_container'):
+                # Esconder treeview temporariamente
+                self.clientes_tree.pack_forget()
+                # Mostrar loading no container
+                self.loading_widget = LoadingWidget(self.treeview_container, "Carregando clientes")
+                self.loading_widget.show()
+        
         def on_data_loaded(clientes_loaded):
-            self.clientes = clientes_loaded
-            self.refresh_clientes_list()
+            # Agendar atualização da GUI na thread principal
+            root = self.parent.winfo_toplevel()
+            # Esconder loading e mostrar treeview
+            if self.loading_widget:
+                def hide_and_show():
+                    self.loading_widget.hide()
+                    self.clientes_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                root.after(0, hide_and_show)
+            # Atualizar apenas se houver dados válidos (não None)
+            if clientes_loaded is not None:
+                self.clientes = clientes_loaded
+                root.after(0, self.refresh_clientes_list)
+            # Se clientes_loaded for None, manter dados antigos (não atualizar)
         
-        # Mostra indicador de carregamento
-        self.clientes = []
-        self.refresh_clientes_list()
-        
-        # Carrega dados em thread
+        # NÃO limpar lista - manter dados antigos visíveis até novos chegarem
+        # Isso evita que a interface fique "nugada" durante carregamento
+        # Carrega dados em thread (se já houver cache, será retornado imediatamente)
         self.data_manager.load_clientes(on_data_loaded)
     
     def create_widget(self):
@@ -107,9 +127,13 @@ class ClientesWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(5, 0))
         
+        # Frame container para treeview/loading (alterna entre eles)
+        self.treeview_container = ttk.Frame(list_frame)
+        self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        
         # Treeview para lista de clientes
         columns = ('Nome', 'Telefone', 'Email', 'Data Cadastro')
-        self.clientes_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=12)
+        self.clientes_tree = ttk.Treeview(self.treeview_container, columns=columns, show='headings', height=12)
         
         # Configurar colunas
         self.clientes_tree.heading('Nome', text='Nome')
@@ -123,12 +147,12 @@ class ClientesWidget:
         self.clientes_tree.column('Data Cadastro', width=100)
         
         # Scrollbar
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.clientes_tree.yview)
+        scrollbar = ttk.Scrollbar(self.treeview_container, orient=tk.VERTICAL, command=self.clientes_tree.yview)
         self.clientes_tree.configure(yscrollcommand=scrollbar.set)
         
         # Pack treeview e scrollbar
-        self.clientes_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=(0, 15))
+        self.clientes_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind seleção
         self.clientes_tree.bind('<<TreeviewSelect>>', self.on_cliente_select)
@@ -224,9 +248,19 @@ class ClientesWidget:
     
     def refresh_clientes_list(self):
         """Atualiza a lista de clientes"""
+        # Verificar se o widget ainda existe
+        try:
+            if not hasattr(self, 'clientes_tree') or not self.clientes_tree.winfo_exists():
+                return
+        except:
+            return
+        
         # Limpar lista
-        for item in self.clientes_tree.get_children():
-            self.clientes_tree.delete(item)
+        try:
+            for item in self.clientes_tree.get_children():
+                self.clientes_tree.delete(item)
+        except:
+            return
         
         # Adicionar clientes
         for cliente in self.clientes:
@@ -332,10 +366,11 @@ class ClientesWidget:
                 if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
                     cliente.ativo = False
                     # Salvar no banco de dados após exclusão
+                    root = self.parent.winfo_toplevel()
                     def on_save_complete(success):
                         if success and self.dashboard_callback:
-                            # Notificar dashboard sobre mudança nos dados
-                            self.dashboard_callback()
+                            # Agendar notificação do dashboard na thread principal
+                            root.after(0, self.dashboard_callback)
                     
                     self.data_manager.save_clientes(self.clientes, on_save_complete)
                     self.refresh_clientes_list()
@@ -396,10 +431,11 @@ class ClientesWidget:
             messagebox.showinfo("Sucesso", "Cliente cadastrado com sucesso!")
         
         # Salvar no banco de dados usando thread
+        root = self.parent.winfo_toplevel()
         def on_save_complete(success):
             if success and self.dashboard_callback:
-                # Notificar dashboard sobre mudança nos dados
-                self.dashboard_callback()
+                # Agendar notificação do dashboard na thread principal
+                root.after(0, self.dashboard_callback)
         
         self.data_manager.save_clientes(self.clientes, on_save_complete)
         self.refresh_clientes_list()

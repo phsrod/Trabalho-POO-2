@@ -9,6 +9,7 @@ from .validators import (
     bind_date_mask, bind_time_mask,
     DateMask, TimeMask
 )
+from .loading_widget import LoadingWidget
 
 class AgendamentosWidget:
     """Widget de visualização de agendamentos para uso embutido"""
@@ -21,6 +22,7 @@ class AgendamentosWidget:
         self.servicos: List[Servico] = []
         self.data_manager = get_data_manager()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
+        self.loading_widget = None
         self.create_widget()
         self.load_data_from_files()
     
@@ -140,9 +142,13 @@ class AgendamentosWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT)
         
+        # Frame container para treeview/loading (alterna entre eles)
+        self.treeview_container = ttk.Frame(list_frame)
+        self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        
         # Treeview para lista de agendamentos
         columns = ('Data', 'Hora', 'Cliente', 'Funcionário', 'Serviço', 'Status', 'Valor')
-        self.agendamentos_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
+        self.agendamentos_tree = ttk.Treeview(self.treeview_container, columns=columns, show='headings', height=15)
         
         # Configurar colunas
         self.agendamentos_tree.heading('Data', text='Data')
@@ -162,51 +168,105 @@ class AgendamentosWidget:
         self.agendamentos_tree.column('Valor', width=80)
         
         # Scrollbar
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.agendamentos_tree.yview)
+        scrollbar = ttk.Scrollbar(self.treeview_container, orient=tk.VERTICAL, command=self.agendamentos_tree.yview)
         self.agendamentos_tree.configure(yscrollcommand=scrollbar.set)
         
         # Pack treeview e scrollbar
-        self.agendamentos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=(0, 15))
+        self.agendamentos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Bind duplo clique
         self.agendamentos_tree.bind('<Double-1>', self.on_agendamento_double_click)
     
     def load_data_from_files(self):
         """Carrega dados do banco de dados usando threads"""
+        root = self.parent.winfo_toplevel()
+        
+        # Verificar se precisa mostrar loading (se algum dado não estiver em cache E lista está vazia)
+        needs_loading = (
+            (self.data_manager._clientes is None or
+             self.data_manager._funcionarios is None or
+             self.data_manager._servicos is None or
+             self.data_manager._agendamentos is None) and
+            len(self.agendamentos) == 0
+        )
+        
+        if needs_loading and self.loading_widget is None and hasattr(self, 'treeview_container'):
+            # Esconder treeview temporariamente
+            self.agendamentos_tree.pack_forget()
+            # Mostrar loading no container
+            self.loading_widget = LoadingWidget(self.treeview_container, "Carregando agendamentos")
+            self.loading_widget.show()
+        
+        # NÃO limpar listas - manter dados antigos visíveis até novos chegarem
+        # Isso evita que a interface fique "nugada" durante carregamento
+        
         def on_clientes_loaded(clientes):
-            self.clientes = clientes
-            check_all_loaded()
+            if clientes is not None:  # Atualizar apenas se houver dados válidos
+                self.clientes = clientes
+                root.after(0, check_all_loaded)
         
         def on_funcionarios_loaded(funcionarios):
-            self.funcionarios = funcionarios
-            check_all_loaded()
+            if funcionarios is not None:  # Atualizar apenas se houver dados válidos
+                self.funcionarios = funcionarios
+                root.after(0, check_all_loaded)
         
         def on_servicos_loaded(servicos):
-            self.servicos = servicos
-            check_all_loaded()
+            if servicos is not None:  # Atualizar apenas se houver dados válidos
+                self.servicos = servicos
+                root.after(0, check_all_loaded)
         
         def on_agendamentos_loaded(agendamentos):
-            self.agendamentos = agendamentos
-            check_all_loaded()
+            if agendamentos is not None:  # Atualizar apenas se houver dados válidos
+                self.agendamentos = agendamentos
+                root.after(0, check_all_loaded)
         
         loaded_count = [0]
         def check_all_loaded():
+            # Verificar se o widget ainda existe antes de atualizar
+            try:
+                if not hasattr(self, 'main_frame') or not self.main_frame.winfo_exists():
+                    return
+            except:
+                return
+            
             loaded_count[0] += 1
             if loaded_count[0] == 4:
-                self.refresh_agendamentos_list()
+                # Esconder loading e mostrar treeview quando todos os dados carregarem
+                if self.loading_widget:
+                    def hide_and_show():
+                        self.loading_widget.hide()
+                        self.agendamentos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                    root.after(0, hide_and_show)
+                # Verificar novamente antes de atualizar
+                try:
+                    if hasattr(self, 'main_frame') and self.main_frame.winfo_exists():
+                        self.refresh_agendamentos_list()
+                except:
+                    pass
         
-        # Força recarregamento dos dados do banco de dados
+        # Carregar dados do banco de dados (sem force_reload para usar cache quando disponível)
+        # Isso torna o carregamento muito mais rápido se os dados já estiverem em cache
         self.data_manager.load_clientes(on_clientes_loaded)
         self.data_manager.load_funcionarios(on_funcionarios_loaded)
         self.data_manager.load_servicos(on_servicos_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=True)
+        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=False)
     
     def refresh_agendamentos_list(self):
         """Atualiza a lista de agendamentos"""
+        # Verificar se o widget ainda existe
+        try:
+            if not hasattr(self, 'agendamentos_tree') or not self.agendamentos_tree.winfo_exists():
+                return
+        except:
+            return
+        
         # Limpar lista
-        for item in self.agendamentos_tree.get_children():
-            self.agendamentos_tree.delete(item)
+        try:
+            for item in self.agendamentos_tree.get_children():
+                self.agendamentos_tree.delete(item)
+        except:
+            return
         
         # Aplicar filtros
         filtered_agendamentos = self.get_filtered_agendamentos()
@@ -347,15 +407,18 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
         self.agendamentos.append(agendamento)
         
         # Salvar agendamentos
+        root = self.parent.winfo_toplevel()
         def on_save_complete(success):
             if success:
-                self.refresh_agendamentos_list()
-                messagebox.showinfo("Sucesso", "Agendamento criado com sucesso!")
-                # Notificar dashboard sobre mudança nos dados
-                if self.dashboard_callback:
-                    self.dashboard_callback()
+                def update_gui():
+                    self.refresh_agendamentos_list()
+                    messagebox.showinfo("Sucesso", "Agendamento criado com sucesso!")
+                    # Notificar dashboard sobre mudança nos dados
+                    if self.dashboard_callback:
+                        self.dashboard_callback()
+                root.after(0, update_gui)
             else:
-                messagebox.showerror("Erro", "Erro ao salvar agendamento.")
+                root.after(0, lambda: messagebox.showerror("Erro", "Erro ao salvar agendamento."))
         
         self.data_manager.save_agendamentos(self.agendamentos, on_save_complete)
     
@@ -397,15 +460,18 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
                 break
         
         # Salvar agendamentos
+        root = self.parent.winfo_toplevel()
         def on_save_complete(success):
             if success:
-                self.refresh_agendamentos_list()
-                messagebox.showinfo("Sucesso", "Agendamento atualizado com sucesso!")
-                # Notificar dashboard sobre mudança nos dados
-                if self.dashboard_callback:
-                    self.dashboard_callback()
+                def update_gui():
+                    self.refresh_agendamentos_list()
+                    messagebox.showinfo("Sucesso", "Agendamento atualizado com sucesso!")
+                    # Notificar dashboard sobre mudança nos dados
+                    if self.dashboard_callback:
+                        self.dashboard_callback()
+                root.after(0, update_gui)
             else:
-                messagebox.showerror("Erro", "Erro ao salvar agendamento.")
+                root.after(0, lambda: messagebox.showerror("Erro", "Erro ao salvar agendamento."))
         
         self.data_manager.save_agendamentos(self.agendamentos, on_save_complete)
 
