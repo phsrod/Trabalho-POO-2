@@ -38,8 +38,20 @@ class ServicosWidget:
             # Esconder loading e mostrar treeview
             if self.loading_widget:
                 def hide_and_show():
-                    self.loading_widget.hide()
-                    self.servicos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                    # Verificar se os widgets ainda existem antes de manipular
+                    try:
+                        if not self.parent.winfo_exists():
+                            return
+                        if not hasattr(self, 'servicos_tree') or not self.servicos_tree.winfo_exists():
+                            return
+                        if not hasattr(self, 'loading_widget') or self.loading_widget is None:
+                            return
+                        
+                        self.loading_widget.hide()
+                        if self.servicos_tree.winfo_exists():
+                            self.servicos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                    except:
+                        pass  # Widget já foi destruído, ignorar
                 root.after(0, hide_and_show)
             # Atualizar apenas se houver dados válidos (não None)
             if servicos_loaded is not None:

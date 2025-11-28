@@ -232,8 +232,20 @@ class AgendamentosWidget:
                 # Esconder loading e mostrar treeview quando todos os dados carregarem
                 if self.loading_widget:
                     def hide_and_show():
-                        self.loading_widget.hide()
-                        self.agendamentos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                        # Verificar se os widgets ainda existem antes de manipular
+                        try:
+                            if not self.parent.winfo_exists():
+                                return
+                            if not hasattr(self, 'agendamentos_tree') or not self.agendamentos_tree.winfo_exists():
+                                return
+                            if not hasattr(self, 'loading_widget') or self.loading_widget is None:
+                                return
+                            
+                            self.loading_widget.hide()
+                            if self.agendamentos_tree.winfo_exists():
+                                self.agendamentos_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                        except:
+                            pass  # Widget já foi destruído, ignorar
                     root.after(0, hide_and_show)
                 # Verificar novamente antes de atualizar
                 try:

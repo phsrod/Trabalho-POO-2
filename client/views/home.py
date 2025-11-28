@@ -278,17 +278,17 @@ class HomeWindow:
             self.current_widget.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
             # Atualizar scroll de forma assíncrona
             self.window.after(10, lambda: self.canvas.update_idletasks() or self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-            # Atualizar dashboard de forma assíncrona quando abrir uma seção (delay maior para dados carregarem)
-            self.window.after(300, self.refresh_dashboard)
+            # Atualizar dashboard de forma assíncrona quando abrir uma seção (delay menor para resposta mais rápida)
+            self.window.after(100, self.refresh_dashboard_quick)
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao criar widget: {str(e)}")
 
     def close_current_content(self):
         """Fecha o conteúdo atual e volta para a mensagem de boas-vindas"""
         self.show_welcome_message()
-        # Atualizar dashboard de forma assíncrona quando fechar uma seção (para não travar)
+        # Atualizar dashboard de forma assíncrona quando fechar uma seção (mais rápido)
         if self.window and self.window.winfo_exists():
-            self.window.after(50, self.refresh_dashboard)
+            self.window.after(50, self.refresh_dashboard_quick)
     
     def open_clients(self):
         try:
@@ -391,6 +391,41 @@ class HomeWindow:
         """Atualiza os dados do dashboard"""
         self.load_dashboard_data()
     
+    def refresh_dashboard_quick(self):
+        """Atualiza o dashboard rapidamente recarregando apenas os dados necessários"""
+        # Recarregar dados de forma mais rápida, forçando atualização do cache
+        def on_clientes_loaded(clientes):
+            if clientes is not None:
+                self.clientes = clientes
+                if self.window and self.window.winfo_exists():
+                    self.window.after(0, self.update_clientes_count)
+        
+        def on_funcionarios_loaded(funcionarios):
+            if funcionarios is not None:
+                self.funcionarios = funcionarios
+                if self.window and self.window.winfo_exists():
+                    self.window.after(0, self.update_funcionarios_count)
+        
+        def on_agendamentos_loaded(agendamentos):
+            if agendamentos is not None:
+                self.agendamentos = agendamentos
+                if self.window and self.window.winfo_exists():
+                    def update_stats():
+                        if self.window and self.window.winfo_exists():
+                            self.update_agendamentos_hoje()
+                            self.update_receita_mensal()
+                    self.window.after(0, update_stats)
+        
+        # Limpar cache para forçar recarregamento
+        self.api_client._clientes = None
+        self.api_client._funcionarios = None
+        self.api_client._agendamentos = None
+        
+        # Carregar dados atualizados
+        self.api_client.load_clientes(on_clientes_loaded)
+        self.api_client.load_funcionarios(on_funcionarios_loaded)
+        self.api_client.load_agendamentos(on_agendamentos_loaded, force_reload=True)
+    
     def start_auto_refresh(self):
         """Inicia a atualização automática periódica do dashboard"""
         if self.auto_refresh_enabled and self.window:
@@ -409,8 +444,8 @@ class HomeWindow:
                     self.window.after_cancel(self._refresh_id)
                 except:
                     pass
-            # Agendar novo refresh com delay maior para dar tempo do servidor processar
-            self._refresh_id = self.window.after(500, self.refresh_dashboard)
+            # Agendar novo refresh com delay menor (100ms) para resposta mais rápida
+            self._refresh_id = self.window.after(100, self.refresh_dashboard_quick)
     
     def update_clientes_count(self):
         """Atualiza o contador de clientes"""
