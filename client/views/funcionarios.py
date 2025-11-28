@@ -1,13 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import List, Optional
-from models import Funcionario
 from datetime import datetime
-from repositories import get_data_manager
-from .validators import (
-    bind_phone_mask, bind_email_validator, bind_money_mask,
-    PhoneMask, EmailValidator, MoneyMask
-)
+from ..models import Funcionario
+from ..repositories import get_api_client
+from ..utils import bind_phone_mask, bind_email_validator, bind_money_mask, PhoneMask, EmailValidator, MoneyMask
 from .loading_widget import LoadingWidget
 
 class FuncionariosWidget:
@@ -17,7 +14,7 @@ class FuncionariosWidget:
         self.parent = parent
         self.funcionarios: List[Funcionario] = []
         self.current_funcionario: Optional[Funcionario] = None
-        self.data_manager = get_data_manager()
+        self.api_client = get_api_client()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.loading_widget = None
         self.create_widget()
@@ -27,7 +24,7 @@ class FuncionariosWidget:
     def load_data_from_file(self):
         """Carrega dados do banco de dados usando thread"""
         # Verificar se já tem cache e se a lista está vazia - se não tiver, mostrar loading
-        if self.data_manager._funcionarios is None and len(self.funcionarios) == 0:
+        if self.api_client._funcionarios is None and len(self.funcionarios) == 0:
             if self.loading_widget is None and hasattr(self, 'treeview_container'):
                 # Esconder treeview temporariamente
                 self.funcionarios_tree.pack_forget()
@@ -53,7 +50,7 @@ class FuncionariosWidget:
         # NÃO limpar lista - manter dados antigos visíveis até novos chegarem
         # Isso evita que a interface fique "nugada" durante carregamento
         # Carrega dados em thread (se já houver cache, será retornado imediatamente)
-        self.data_manager.load_funcionarios(on_data_loaded)
+        self.api_client.load_funcionarios(on_data_loaded)
     
     def create_widget(self):
         """Cria o widget de funcionários"""
@@ -388,7 +385,7 @@ class FuncionariosWidget:
                             # Agendar notificação do dashboard na thread principal
                             root.after(0, self.dashboard_callback)
                     
-                    self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
+                    self.api_client.save_funcionarios(self.funcionarios, on_save_complete)
                     self.refresh_funcionarios_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Funcionário excluído com sucesso!")

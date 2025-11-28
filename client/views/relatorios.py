@@ -1,11 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from typing import List
-from models import Cliente, Funcionario, Servico, Agendamento
+from ..models import Cliente, Funcionario, Servico, Agendamento
 from datetime import datetime, timedelta, date
 from collections import defaultdict
-from repositories import get_data_manager
-from .validators import bind_date_mask
+from ..repositories import get_api_client
+from ..utils import bind_date_mask
 from .loading_widget import LoadingWidget
 
 class RelatoriosWidget:
@@ -17,7 +17,7 @@ class RelatoriosWidget:
         self.funcionarios: List[Funcionario] = []
         self.servicos: List[Servico] = []
         self.agendamentos: List[Agendamento] = []
-        self.data_manager = get_data_manager()
+        self.api_client = get_api_client()
         self.dashboard_callback = dashboard_callback  # Callback opcional (não usado aqui, mas aceito para compatibilidade)
         self.loading_widget = None
         self.create_widget()
@@ -494,7 +494,7 @@ class RelatoriosWidget:
             else:
                 root.after(0, lambda: messagebox.showerror("Erro", f"Erro ao exportar relatório:\n{result}"))
         
-        self.data_manager.export_relatorio_txt(
+        self.api_client.export_relatorio_txt(
             self.clientes, self.funcionarios, self.servicos, self.agendamentos,
             data_inicial, data_final, filename, on_export_complete
         )
@@ -505,10 +505,10 @@ class RelatoriosWidget:
         
         # Verificar se precisa mostrar loading (se algum dado não estiver em cache E não há dados ainda)
         needs_loading = (
-            (self.data_manager._clientes is None or
-             self.data_manager._funcionarios is None or
-             self.data_manager._servicos is None or
-             self.data_manager._agendamentos is None) and
+            (self.api_client._clientes is None or
+             self.api_client._funcionarios is None or
+             self.api_client._servicos is None or
+             self.api_client._agendamentos is None) and
             (len(self.clientes) == 0 and len(self.funcionarios) == 0 and 
              len(self.servicos) == 0 and len(self.agendamentos) == 0)
         )
@@ -563,7 +563,7 @@ class RelatoriosWidget:
                     pass
         
         # Força recarregamento dos dados do banco de dados
-        self.data_manager.load_clientes(on_clientes_loaded)
-        self.data_manager.load_funcionarios(on_funcionarios_loaded)
-        self.data_manager.load_servicos(on_servicos_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=False)
+        self.api_client.load_clientes(on_clientes_loaded)
+        self.api_client.load_funcionarios(on_funcionarios_loaded)
+        self.api_client.load_servicos(on_servicos_loaded)
+        self.api_client.load_agendamentos(on_agendamentos_loaded, force_reload=False)

@@ -6,7 +6,7 @@ Aplicação desktop para gerenciamento administrativo de barbearia
 Ponto de entrada principal da aplicação
 """
 
-from controllers import BarbeariaApp
+from client.controllers import BarbeariaApp
 
 def main():
     """Função principal - apenas inicia a aplicação"""

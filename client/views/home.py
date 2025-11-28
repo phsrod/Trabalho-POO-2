@@ -1,16 +1,14 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, date
-import threading
 from .clientes import ClientesWidget
 from .servicos import ServicosWidget
 from .funcionarios import FuncionariosWidget
 from .agendamentos import AgendamentosWidget
 from .relatorios import RelatoriosWidget
-from .styles import StyleManager
-from .loading_widget import LoadingWidget
-from repositories import get_data_manager
-from models import Cliente, Funcionario, Agendamento
+from ..utils import StyleManager
+from ..repositories import get_api_client
+from ..models import Cliente, Funcionario, Agendamento
 
 class HomeWindow:
     """Janela principal (dashboard) da aplicação administrativa"""
@@ -25,8 +23,8 @@ class HomeWindow:
         self.scrollbar = None
         self.close_button = None
         
-        # Data manager para carregar dados
-        self.data_manager = get_data_manager()
+        # Cliente API para carregar dados
+        self.api_client = get_api_client()
         
         # Labels dos cards de estatísticas (serão criados em create_stats_cards)
         self.stats_labels = {}
@@ -390,9 +388,9 @@ class HomeWindow:
         # Isso evita que o dashboard fique zerado durante carregamento
         
         # Carregar dados usando threads
-        self.data_manager.load_clientes(on_clientes_loaded)
-        self.data_manager.load_funcionarios(on_funcionarios_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=False)
+        self.api_client.load_clientes(on_clientes_loaded)
+        self.api_client.load_funcionarios(on_funcionarios_loaded)
+        self.api_client.load_agendamentos(on_agendamentos_loaded, force_reload=False)
     
     def refresh_dashboard(self):
         """Atualiza os dados do dashboard"""

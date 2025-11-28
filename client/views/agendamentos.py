@@ -1,14 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import List, Optional, Tuple, Callable
-from models import Agendamento, Cliente, Funcionario, Servico
+from ..models import Agendamento, Cliente, Funcionario, Servico
 from datetime import datetime, timedelta, date
 from decimal import Decimal
-from repositories import get_data_manager
-from .validators import (
-    bind_date_mask, bind_time_mask,
-    DateMask, TimeMask
-)
+from ..repositories import get_api_client
+from ..utils import bind_date_mask, bind_time_mask, DateMask, TimeMask
 from .loading_widget import LoadingWidget
 
 class AgendamentosWidget:
@@ -20,7 +17,7 @@ class AgendamentosWidget:
         self.clientes: List[Cliente] = []
         self.funcionarios: List[Funcionario] = []
         self.servicos: List[Servico] = []
-        self.data_manager = get_data_manager()
+        self.api_client = get_api_client()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.loading_widget = None
         self.create_widget()
@@ -184,10 +181,10 @@ class AgendamentosWidget:
         
         # Verificar se precisa mostrar loading (se algum dado não estiver em cache E lista está vazia)
         needs_loading = (
-            (self.data_manager._clientes is None or
-             self.data_manager._funcionarios is None or
-             self.data_manager._servicos is None or
-             self.data_manager._agendamentos is None) and
+            (self.api_client._clientes is None or
+             self.api_client._funcionarios is None or
+             self.api_client._servicos is None or
+             self.api_client._agendamentos is None) and
             len(self.agendamentos) == 0
         )
         
@@ -247,10 +244,10 @@ class AgendamentosWidget:
         
         # Carregar dados do banco de dados (sem force_reload para usar cache quando disponível)
         # Isso torna o carregamento muito mais rápido se os dados já estiverem em cache
-        self.data_manager.load_clientes(on_clientes_loaded)
-        self.data_manager.load_funcionarios(on_funcionarios_loaded)
-        self.data_manager.load_servicos(on_servicos_loaded)
-        self.data_manager.load_agendamentos(on_agendamentos_loaded, force_reload=False)
+        self.api_client.load_clientes(on_clientes_loaded)
+        self.api_client.load_funcionarios(on_funcionarios_loaded)
+        self.api_client.load_servicos(on_servicos_loaded)
+        self.api_client.load_agendamentos(on_agendamentos_loaded, force_reload=False)
     
     def refresh_agendamentos_list(self):
         """Atualiza a lista de agendamentos"""
@@ -420,7 +417,7 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
             else:
                 root.after(0, lambda: messagebox.showerror("Erro", "Erro ao salvar agendamento."))
         
-        self.data_manager.save_agendamentos(self.agendamentos, on_save_complete)
+        self.api_client.save_agendamentos(self.agendamentos, on_save_complete)
     
     def edit_agendamento(self):
         """Edita um agendamento selecionado"""
@@ -473,7 +470,7 @@ Observações: {agendamento.observacoes or 'Nenhuma'}
             else:
                 root.after(0, lambda: messagebox.showerror("Erro", "Erro ao salvar agendamento."))
         
-        self.data_manager.save_agendamentos(self.agendamentos, on_save_complete)
+        self.api_client.save_agendamentos(self.agendamentos, on_save_complete)
 
 
 class NovoAgendamentoDialog:

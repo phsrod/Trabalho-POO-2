@@ -1,13 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import List, Optional
-from models import Servico
 from decimal import Decimal
-from repositories import get_data_manager
-from .validators import (
-    bind_money_mask, bind_number_only,
-    MoneyMask
-)
+from ..models import Servico
+from ..repositories import get_api_client
+from ..utils import bind_money_mask, bind_number_only, MoneyMask
 from .loading_widget import LoadingWidget
 
 class ServicosWidget:
@@ -17,7 +14,7 @@ class ServicosWidget:
         self.parent = parent
         self.servicos: List[Servico] = []
         self.current_servico: Optional[Servico] = None
-        self.data_manager = get_data_manager()
+        self.api_client = get_api_client()
         self.dashboard_callback = dashboard_callback  # Callback para notificar dashboard
         self.loading_widget = None
         self.create_widget()
@@ -27,7 +24,7 @@ class ServicosWidget:
     def load_data_from_file(self):
         """Carrega dados do banco de dados usando thread"""
         # Verificar se já tem cache e se a lista está vazia - se não tiver, mostrar loading
-        if self.data_manager._servicos is None and len(self.servicos) == 0:
+        if self.api_client._servicos is None and len(self.servicos) == 0:
             if self.loading_widget is None and hasattr(self, 'treeview_container'):
                 # Esconder treeview temporariamente
                 self.servicos_tree.pack_forget()
@@ -53,7 +50,7 @@ class ServicosWidget:
         # NÃO limpar lista - manter dados antigos visíveis até novos chegarem
         # Isso evita que a interface fique "nugada" durante carregamento
         # Carrega dados em thread (se já houver cache, será retornado imediatamente)
-        self.data_manager.load_servicos(on_data_loaded)
+        self.api_client.load_servicos(on_data_loaded)
     
     def create_widget(self):
         """Cria o widget de serviços"""
@@ -341,7 +338,7 @@ class ServicosWidget:
                             # Agendar notificação do dashboard na thread principal
                             root.after(0, self.dashboard_callback)
                     
-                    self.data_manager.save_servicos(self.servicos, on_save_complete)
+                    self.api_client.save_servicos(self.servicos, on_save_complete)
                     self.refresh_servicos_list()
                     self.clear_form()
                     messagebox.showinfo("Sucesso", "Serviço excluído com sucesso!")

@@ -1,3 +1,7 @@
+"""
+Modelos de domínio do cliente
+"""
+
 from .cliente import Cliente
 from .servico import Servico
 from .funcionario import Funcionario

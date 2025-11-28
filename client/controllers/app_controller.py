@@ -6,7 +6,8 @@ Gerencia o ciclo de vida e navegação da aplicação
 
 import tkinter as tk
 from tkinter import messagebox
-from gui import LoginWindow, HomeWindow, StyleManager
+from ..views import LoginWindow, HomeWindow
+from ..utils import StyleManager
 
 class BarbeariaApp:
     """Classe principal da aplicação"""

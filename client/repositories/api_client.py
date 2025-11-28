@@ -1,7 +1,6 @@
 """
-Sistema de Gerenciamento de Dados com Persistência via API REST
-Gerencia o carregamento, salvamento e exportação de dados usando threads
-para manter a interface responsiva. Comunica-se com o servidor Flask via HTTP.
+Cliente API REST
+Gerencia comunicação com o servidor Flask via HTTP
 """
 
 import threading
@@ -9,13 +8,13 @@ import requests
 from typing import List, Optional, Callable
 from datetime import datetime, date
 from decimal import Decimal
-from models import Cliente, Funcionario, Servico, Agendamento
+from ..models import Cliente, Funcionario, Servico, Agendamento
 
 # URL base do servidor
 SERVER_URL = "http://localhost:5000"
 
-class DataManager:
-    """Gerenciador de dados que se comunica com servidor Flask via HTTP"""
+class ApiClient:
+    """Cliente API que se comunica com servidor Flask via HTTP"""
     
     def __init__(self, server_url: str = SERVER_URL):
         """
@@ -544,12 +543,12 @@ class DataManager:
         thread.start()
 
 
-# Instância global do gerenciador de dados
-_data_manager = None
+# Instância global do cliente API
+_api_client = None
 
-def get_data_manager() -> DataManager:
-    """Retorna a instância global do gerenciador de dados"""
-    global _data_manager
-    if _data_manager is None:
-        _data_manager = DataManager()
-    return _data_manager
+def get_api_client() -> ApiClient:
+    """Retorna a instância global do cliente API"""
+    global _api_client
+    if _api_client is None:
+        _api_client = ApiClient()
+    return _api_client

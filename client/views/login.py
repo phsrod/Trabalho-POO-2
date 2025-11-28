@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from typing import Callable
-from .styles import StyleManager
+from ..utils import StyleManager
 
 
 class LoginWindow:

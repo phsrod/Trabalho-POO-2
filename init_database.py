@@ -4,7 +4,7 @@ Script de Inicialização do Banco de Dados
 Cria todas as tabelas necessárias no banco de dados
 """
 
-from repositories.database import init_db
+from shared.database import init_db
 
 if __name__ == "__main__":
     print("Inicializando banco de dados...")

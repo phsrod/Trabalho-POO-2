@@ -62,7 +62,7 @@ class AgendamentoDB(Base):
     observacoes = Column(Text, nullable=False, default="")
     valor_total = Column(DECIMAL(10, 2), nullable=False, default=0.00)
     
-    # Relacionamentos (opcional, para facilitar queries)
+    # Relacionamentos
     cliente = relationship("ClienteDB", foreign_keys=[cliente_id])
     funcionario = relationship("FuncionarioDB", foreign_keys=[funcionario_id])
     servico = relationship("ServicoDB", foreign_keys=[servico_id])

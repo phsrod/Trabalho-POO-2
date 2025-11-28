@@ -25,23 +25,14 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
-    echo=False  # Mude para True para ver SQL gerado
+    echo=False
 )
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def get_db():
-    """Retorna uma sessão do banco de dados"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 def init_db():
     """Inicializa o banco de dados criando todas as tabelas"""
-    # Importar modelos para que sejam registrados na Base.metadata
-    from . import db_models  # noqa: F401
+    from . import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
 
