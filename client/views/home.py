@@ -144,8 +144,7 @@ class HomeWindow:
             ("Serviços", self.open_services),
             ("Funcionários", self.open_employees),
             ("Agendamentos", self.open_schedules),
-            ("Relatórios", self.open_reports),
-            ("Configurações", self.open_settings)
+            ("Relatórios", self.open_reports)
         ]
         
         for i, (text, command) in enumerate(menu_buttons):
@@ -222,7 +221,6 @@ class HomeWindow:
         • Gestão de funcionários
         • Visualização de agendamentos
         • Relatórios e estatísticas
-        • Configurações do sistema
         
         Use o menu acima para navegar entre as diferentes funcionalidades.
         """
@@ -321,9 +319,6 @@ class HomeWindow:
             self.show_content(RelatoriosWidget, "Relatórios e Estatísticas")
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao abrir relatórios: {str(e)}")
-    
-    def open_settings(self):
-        messagebox.showinfo("Info", "Funcionalidade de Configurações será implementada em breve.")
     
     def logout(self):
         if messagebox.askyesno("Confirmar", "Deseja realmente sair do sistema?"):

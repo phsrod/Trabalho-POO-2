@@ -125,6 +125,22 @@ class ServicosWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(5, 0))
         
+        # Campo de busca
+        search_frame = ttk.Frame(list_frame)
+        search_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        ttk.Label(search_frame, text="Buscar:", style='Subtitle.TLabel').pack(side=tk.LEFT, padx=(0, 5))
+        self.search_entry = ttk.Entry(search_frame, font=('Arial', 10))
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.search_entry.bind('<KeyRelease>', lambda e: self.on_search_change())
+        
+        ttk.Button(
+            search_frame,
+            text="Limpar",
+            command=self.clear_search,
+            style='Action.TButton'
+        ).pack(side=tk.LEFT)
+        
         # Frame container para treeview/loading (alterna entre eles)
         self.treeview_container = ttk.Frame(list_frame)
         self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
@@ -251,18 +267,41 @@ class ServicosWidget:
         except:
             return
         
+        # Obter termo de busca
+        search_term = ""
+        if hasattr(self, 'search_entry'):
+            try:
+                search_term = self.search_entry.get().strip().lower()
+            except:
+                pass
+        
         # Adicionar serviços
         for servico in self.servicos:
+            # Filtrar por busca se houver termo
+            if search_term and search_term not in servico.nome.lower():
+                continue
+            
             status = "Ativo" if servico.ativo else "Inativo"
             # Formatar preço para exibição
             preco_formatado = MoneyMask.format_value(float(servico.preco))
+            
+            # Aplicar cor diferente para inativos
+            tags = (servico.id,)
+            if not servico.ativo:
+                tags = (servico.id, 'inativo',)
             
             self.servicos_tree.insert('', 'end', values=(
                 servico.nome,
                 preco_formatado,
                 servico.duracao_minutos,
                 status
-            ), tags=(servico.id,))
+            ), tags=tags)
+        
+        # Configurar cor para inativos
+        try:
+            self.servicos_tree.tag_configure('inativo', foreground='gray')
+        except:
+            pass
     
     def on_servico_select(self, event):
         """Callback quando um serviço é selecionado"""
@@ -317,7 +356,7 @@ class ServicosWidget:
                 self.load_servico_to_form(servico)
     
     def delete_servico(self):
-        """Exclui o serviço selecionado"""
+        """Remove o serviço selecionado do banco de dados"""
         selection = self.servicos_tree.selection()
         if not selection:
             messagebox.showwarning("Aviso", "Selecione um serviço para excluir.")
@@ -329,19 +368,31 @@ class ServicosWidget:
         if servico_id:
             servico = next((s for s in self.servicos if s.id == servico_id), None)
             if servico:
-                if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o serviço {servico.nome}?"):
-                    servico.ativo = False
-                    # Salvar no banco de dados após exclusão
+                if messagebox.askyesno("Confirmar", f"Deseja realmente EXCLUIR permanentemente o serviço {servico.nome}?\n\nEsta ação não pode ser desfeita!"):
                     root = self.parent.winfo_toplevel()
-                    def on_save_complete(success):
-                        if success and self.dashboard_callback:
-                            # Agendar notificação do dashboard na thread principal
-                            root.after(0, self.dashboard_callback)
+                    def on_delete_complete(success):
+                        if success:
+                            # Remover da lista local
+                            self.servicos = [s for s in self.servicos if s.id != servico_id]
+                            root.after(0, self.refresh_servicos_list)
+                            root.after(0, self.clear_form)
+                            root.after(0, lambda: messagebox.showinfo("Sucesso", "Serviço excluído permanentemente do banco de dados!"))
+                            if self.dashboard_callback:
+                                root.after(0, self.dashboard_callback)
+                        else:
+                            root.after(0, lambda: messagebox.showerror("Erro", "Erro ao excluir serviço. Tente novamente."))
                     
-                    self.api_client.save_servicos(self.servicos, on_save_complete)
-                    self.refresh_servicos_list()
-                    self.clear_form()
-                    messagebox.showinfo("Sucesso", "Serviço excluído com sucesso!")
+                    self.api_client.delete_servico(servico_id, on_delete_complete)
+    
+    def on_search_change(self):
+        """Callback quando o campo de busca muda"""
+        self.refresh_servicos_list()
+    
+    def clear_search(self):
+        """Limpa o campo de busca"""
+        if hasattr(self, 'search_entry'):
+            self.search_entry.delete(0, tk.END)
+            self.refresh_servicos_list()
     
     def save_servico(self):
         """Salva o serviço usando thread"""
@@ -423,7 +474,7 @@ class ServicosWidget:
                 # Agendar notificação do dashboard na thread principal
                 root.after(0, self.dashboard_callback)
         
-        self.data_manager.save_servicos(self.servicos, on_save_complete)
+        self.api_client.save_servicos(self.servicos, on_save_complete)
         self.refresh_servicos_list()
         self.clear_form()
     

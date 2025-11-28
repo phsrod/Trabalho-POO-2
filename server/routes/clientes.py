@@ -68,3 +68,22 @@ def save_clientes():
     finally:
         db.close()
 
+
+@api.route('/clientes/<int:cliente_id>', methods=['DELETE'])
+def delete_cliente(cliente_id):
+    """Remove um cliente do banco de dados"""
+    db = SessionLocal()
+    try:
+        cliente_db = db.query(ClienteDB).filter(ClienteDB.id == cliente_id).first()
+        if not cliente_db:
+            return jsonify({'success': False, 'error': 'Cliente não encontrado'}), 404
+        
+        db.delete(cliente_db)
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+

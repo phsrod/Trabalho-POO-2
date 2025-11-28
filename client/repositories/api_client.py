@@ -319,6 +319,123 @@ class ApiClient:
         thread = threading.Thread(target=_save, daemon=True)
         thread.start()
     
+    def delete_cliente(self, cliente_id: int, callback: Optional[Callable] = None):
+        """Remove um cliente do banco de dados"""
+        def _delete():
+            try:
+                with self.lock:
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando!")
+                        if callback:
+                            callback(False)
+                        return
+                    
+                    response = requests.delete(
+                        f"{self.server_url}/api/clientes/{cliente_id}",
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            # Limpar cache para forçar recarregamento
+                            self._clientes = None
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
+            except Exception as e:
+                print(f"Erro ao deletar cliente: {e}")
+                import traceback
+                traceback.print_exc()
+                if callback:
+                    callback(False)
+        
+        thread = threading.Thread(target=_delete, daemon=True)
+        thread.start()
+    
+    def delete_funcionario(self, funcionario_id: int, callback: Optional[Callable] = None):
+        """Remove um funcionário do banco de dados"""
+        def _delete():
+            try:
+                with self.lock:
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando!")
+                        if callback:
+                            callback(False)
+                        return
+                    
+                    response = requests.delete(
+                        f"{self.server_url}/api/funcionarios/{funcionario_id}",
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            # Limpar cache para forçar recarregamento
+                            self._funcionarios = None
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
+            except Exception as e:
+                print(f"Erro ao deletar funcionário: {e}")
+                import traceback
+                traceback.print_exc()
+                if callback:
+                    callback(False)
+        
+        thread = threading.Thread(target=_delete, daemon=True)
+        thread.start()
+    
+    def delete_servico(self, servico_id: int, callback: Optional[Callable] = None):
+        """Remove um serviço do banco de dados"""
+        def _delete():
+            try:
+                with self.lock:
+                    if not self._check_server():
+                        print("ERRO: Servidor não está rodando!")
+                        if callback:
+                            callback(False)
+                        return
+                    
+                    response = requests.delete(
+                        f"{self.server_url}/api/servicos/{servico_id}",
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if result.get('success'):
+                            # Limpar cache para forçar recarregamento
+                            self._servicos = None
+                            if callback:
+                                callback(True)
+                        else:
+                            if callback:
+                                callback(False)
+                    else:
+                        if callback:
+                            callback(False)
+            except Exception as e:
+                print(f"Erro ao deletar serviço: {e}")
+                import traceback
+                traceback.print_exc()
+                if callback:
+                    callback(False)
+        
+        thread = threading.Thread(target=_delete, daemon=True)
+        thread.start()
+    
     def load_agendamentos(self, callback: Optional[Callable] = None, force_reload: bool = False) -> List[Agendamento]:
         """Carrega agendamentos do servidor em thread separada"""
         def _load():

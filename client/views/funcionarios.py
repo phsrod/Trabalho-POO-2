@@ -125,6 +125,22 @@ class FuncionariosWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(5, 0))
         
+        # Campo de busca
+        search_frame = ttk.Frame(list_frame)
+        search_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        ttk.Label(search_frame, text="Buscar:", style='Subtitle.TLabel').pack(side=tk.LEFT, padx=(0, 5))
+        self.search_entry = ttk.Entry(search_frame, font=('Arial', 10))
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.search_entry.bind('<KeyRelease>', lambda e: self.on_search_change())
+        
+        ttk.Button(
+            search_frame,
+            text="Limpar",
+            command=self.clear_search,
+            style='Action.TButton'
+        ).pack(side=tk.LEFT)
+        
         # Frame container para treeview/loading (alterna entre eles)
         self.treeview_container = ttk.Frame(list_frame)
         self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
@@ -269,8 +285,20 @@ class FuncionariosWidget:
         except:
             return
         
+        # Obter termo de busca
+        search_term = ""
+        if hasattr(self, 'search_entry'):
+            try:
+                search_term = self.search_entry.get().strip().lower()
+            except:
+                pass
+        
         # Adicionar funcionários
         for funcionario in self.funcionarios:
+            # Filtrar por busca se houver termo
+            if search_term and search_term not in funcionario.nome.lower():
+                continue
+            
             status = "Ativo" if funcionario.ativo else "Inativo"
             # Formatar telefone para exibição
             telefone_numeros = PhoneMask.get_numbers(funcionario.telefone) if funcionario.telefone else ""
@@ -287,13 +315,24 @@ class FuncionariosWidget:
             # Formatar salário para exibição
             salario_formatado = MoneyMask.format_value(funcionario.salario)
             
+            # Aplicar cor diferente para inativos
+            tags = (funcionario.id,)
+            if not funcionario.ativo:
+                tags = (funcionario.id, 'inativo',)
+            
             self.funcionarios_tree.insert('', 'end', values=(
                 funcionario.nome,
                 funcionario.cargo,
                 telefone_formatado,
                 salario_formatado,
                 status
-            ), tags=(funcionario.id,))
+            ), tags=tags)
+        
+        # Configurar cor para inativos
+        try:
+            self.funcionarios_tree.tag_configure('inativo', foreground='gray')
+        except:
+            pass
     
     def on_funcionario_select(self, event):
         """Callback quando um funcionário é selecionado"""
@@ -364,7 +403,7 @@ class FuncionariosWidget:
                 self.load_funcionario_to_form(funcionario)
     
     def delete_funcionario(self):
-        """Exclui o funcionário selecionado"""
+        """Remove o funcionário selecionado do banco de dados"""
         selection = self.funcionarios_tree.selection()
         if not selection:
             messagebox.showwarning("Aviso", "Selecione um funcionário para excluir.")
@@ -376,19 +415,31 @@ class FuncionariosWidget:
         if funcionario_id:
             funcionario = next((f for f in self.funcionarios if f.id == funcionario_id), None)
             if funcionario:
-                if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o funcionário {funcionario.nome}?"):
-                    funcionario.ativo = False
-                    # Salvar no banco de dados após exclusão
+                if messagebox.askyesno("Confirmar", f"Deseja realmente EXCLUIR permanentemente o funcionário {funcionario.nome}?\n\nEsta ação não pode ser desfeita!"):
                     root = self.parent.winfo_toplevel()
-                    def on_save_complete(success):
-                        if success and self.dashboard_callback:
-                            # Agendar notificação do dashboard na thread principal
-                            root.after(0, self.dashboard_callback)
+                    def on_delete_complete(success):
+                        if success:
+                            # Remover da lista local
+                            self.funcionarios = [f for f in self.funcionarios if f.id != funcionario_id]
+                            root.after(0, self.refresh_funcionarios_list)
+                            root.after(0, self.clear_form)
+                            root.after(0, lambda: messagebox.showinfo("Sucesso", "Funcionário excluído permanentemente do banco de dados!"))
+                            if self.dashboard_callback:
+                                root.after(0, self.dashboard_callback)
+                        else:
+                            root.after(0, lambda: messagebox.showerror("Erro", "Erro ao excluir funcionário. Tente novamente."))
                     
-                    self.api_client.save_funcionarios(self.funcionarios, on_save_complete)
-                    self.refresh_funcionarios_list()
-                    self.clear_form()
-                    messagebox.showinfo("Sucesso", "Funcionário excluído com sucesso!")
+                    self.api_client.delete_funcionario(funcionario_id, on_delete_complete)
+    
+    def on_search_change(self):
+        """Callback quando o campo de busca muda"""
+        self.refresh_funcionarios_list()
+    
+    def clear_search(self):
+        """Limpa o campo de busca"""
+        if hasattr(self, 'search_entry'):
+            self.search_entry.delete(0, tk.END)
+            self.refresh_funcionarios_list()
     
     def save_funcionario(self):
         """Salva o funcionário usando thread"""
@@ -485,7 +536,7 @@ class FuncionariosWidget:
                 # Agendar notificação do dashboard na thread principal
                 root.after(0, self.dashboard_callback)
         
-        self.data_manager.save_funcionarios(self.funcionarios, on_save_complete)
+        self.api_client.save_funcionarios(self.funcionarios, on_save_complete)
         self.refresh_funcionarios_list()
         self.clear_form()
     

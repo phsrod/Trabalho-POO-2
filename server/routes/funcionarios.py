@@ -68,3 +68,22 @@ def save_funcionarios():
     finally:
         db.close()
 
+
+@api.route('/funcionarios/<int:funcionario_id>', methods=['DELETE'])
+def delete_funcionario(funcionario_id):
+    """Remove um funcionário do banco de dados"""
+    db = SessionLocal()
+    try:
+        funcionario_db = db.query(FuncionarioDB).filter(FuncionarioDB.id == funcionario_id).first()
+        if not funcionario_db:
+            return jsonify({'success': False, 'error': 'Funcionário não encontrado'}), 404
+        
+        db.delete(funcionario_db)
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+

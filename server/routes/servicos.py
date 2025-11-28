@@ -63,3 +63,22 @@ def save_servicos():
     finally:
         db.close()
 
+
+@api.route('/servicos/<int:servico_id>', methods=['DELETE'])
+def delete_servico(servico_id):
+    """Remove um serviço do banco de dados"""
+    db = SessionLocal()
+    try:
+        servico_db = db.query(ServicoDB).filter(ServicoDB.id == servico_id).first()
+        if not servico_db:
+            return jsonify({'success': False, 'error': 'Serviço não encontrado'}), 404
+        
+        db.delete(servico_db)
+        db.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        db.close()
+

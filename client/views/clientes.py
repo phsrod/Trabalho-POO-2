@@ -124,12 +124,28 @@ class ClientesWidget:
             style='Action.TButton'
         ).pack(side=tk.LEFT, padx=(5, 0))
         
+        # Campo de busca
+        search_frame = ttk.Frame(list_frame)
+        search_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
+        
+        ttk.Label(search_frame, text="Buscar:", style='Subtitle.TLabel').pack(side=tk.LEFT, padx=(0, 5))
+        self.search_entry = ttk.Entry(search_frame, font=('Arial', 10))
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
+        self.search_entry.bind('<KeyRelease>', lambda e: self.on_search_change())
+        
+        ttk.Button(
+            search_frame,
+            text="Limpar",
+            command=self.clear_search,
+            style='Action.TButton'
+        ).pack(side=tk.LEFT)
+        
         # Frame container para treeview/loading (alterna entre eles)
         self.treeview_container = ttk.Frame(list_frame)
         self.treeview_container.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
         
         # Treeview para lista de clientes
-        columns = ('Nome', 'Telefone', 'Email', 'Data Cadastro')
+        columns = ('Nome', 'Telefone', 'Email', 'Data Cadastro', 'Status')
         self.clientes_tree = ttk.Treeview(self.treeview_container, columns=columns, show='headings', height=12)
         
         # Configurar colunas
@@ -137,11 +153,13 @@ class ClientesWidget:
         self.clientes_tree.heading('Telefone', text='Telefone')
         self.clientes_tree.heading('Email', text='Email')
         self.clientes_tree.heading('Data Cadastro', text='Data Cadastro')
+        self.clientes_tree.heading('Status', text='Status')
         
         self.clientes_tree.column('Nome', width=150)
         self.clientes_tree.column('Telefone', width=100)
         self.clientes_tree.column('Email', width=150)
         self.clientes_tree.column('Data Cadastro', width=100)
+        self.clientes_tree.column('Status', width=80)
         
         # Scrollbar
         scrollbar = ttk.Scrollbar(self.treeview_container, orient=tk.VERTICAL, command=self.clientes_tree.yview)
@@ -259,28 +277,52 @@ class ClientesWidget:
         except:
             return
         
-        # Adicionar clientes
+        # Obter termo de busca
+        search_term = ""
+        if hasattr(self, 'search_entry'):
+            try:
+                search_term = self.search_entry.get().strip().lower()
+            except:
+                pass
+        
+        # Adicionar clientes (todos, ativos e inativos)
         for cliente in self.clientes:
-            if cliente.ativo:  # Mostrar apenas clientes ativos
-                data_cadastro = cliente.data_cadastro.strftime("%d/%m/%Y") if cliente.data_cadastro else ""
-                # Formatar telefone para exibição
-                telefone_numeros = PhoneMask.get_numbers(cliente.telefone) if cliente.telefone else ""
-                if telefone_numeros:
-                    if len(telefone_numeros) == 10:
-                        telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
-                    elif len(telefone_numeros) == 11:
-                        telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
-                    else:
-                        telefone_formatado = cliente.telefone
+            # Filtrar por busca se houver termo
+            if search_term and search_term not in cliente.nome.lower():
+                continue
+            
+            status = "Ativo" if cliente.ativo else "Inativo"
+            data_cadastro = cliente.data_cadastro.strftime("%d/%m/%Y") if cliente.data_cadastro else ""
+            # Formatar telefone para exibição
+            telefone_numeros = PhoneMask.get_numbers(cliente.telefone) if cliente.telefone else ""
+            if telefone_numeros:
+                if len(telefone_numeros) == 10:
+                    telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:6]}-{telefone_numeros[6:]}"
+                elif len(telefone_numeros) == 11:
+                    telefone_formatado = f"({telefone_numeros[:2]}) {telefone_numeros[2:7]}-{telefone_numeros[7:]}"
                 else:
-                    telefone_formatado = cliente.telefone if cliente.telefone else ""
-                
-                self.clientes_tree.insert('', 'end', values=(
-                    cliente.nome,
-                    telefone_formatado,
-                    cliente.email,
-                    data_cadastro
-                ), tags=(cliente.id,))
+                    telefone_formatado = cliente.telefone
+            else:
+                telefone_formatado = cliente.telefone if cliente.telefone else ""
+            
+            # Aplicar cor diferente para inativos
+            tags = (cliente.id,)
+            if not cliente.ativo:
+                tags = (cliente.id, 'inativo',)
+            
+            self.clientes_tree.insert('', 'end', values=(
+                cliente.nome,
+                telefone_formatado,
+                cliente.email,
+                data_cadastro,
+                status
+            ), tags=tags)
+        
+        # Configurar cor para inativos
+        try:
+            self.clientes_tree.tag_configure('inativo', foreground='gray')
+        except:
+            pass
     
     def on_cliente_select(self, event):
         """Callback quando um cliente é selecionado"""
@@ -348,7 +390,7 @@ class ClientesWidget:
                 self.load_cliente_to_form(cliente)
     
     def delete_cliente(self):
-        """Exclui o cliente selecionado"""
+        """Remove o cliente selecionado do banco de dados"""
         selection = self.clientes_tree.selection()
         if not selection:
             messagebox.showwarning("Aviso", "Selecione um cliente para excluir.")
@@ -360,19 +402,31 @@ class ClientesWidget:
         if cliente_id:
             cliente = next((c for c in self.clientes if c.id == cliente_id), None)
             if cliente:
-                if messagebox.askyesno("Confirmar", f"Deseja realmente excluir o cliente {cliente.nome}?"):
-                    cliente.ativo = False
-                    # Salvar no banco de dados após exclusão
+                if messagebox.askyesno("Confirmar", f"Deseja realmente EXCLUIR permanentemente o cliente {cliente.nome}?\n\nEsta ação não pode ser desfeita!"):
                     root = self.parent.winfo_toplevel()
-                    def on_save_complete(success):
-                        if success and self.dashboard_callback:
-                            # Agendar notificação do dashboard na thread principal
-                            root.after(0, self.dashboard_callback)
+                    def on_delete_complete(success):
+                        if success:
+                            # Remover da lista local
+                            self.clientes = [c for c in self.clientes if c.id != cliente_id]
+                            root.after(0, self.refresh_clientes_list)
+                            root.after(0, self.clear_form)
+                            root.after(0, lambda: messagebox.showinfo("Sucesso", "Cliente excluído permanentemente do banco de dados!"))
+                            if self.dashboard_callback:
+                                root.after(0, self.dashboard_callback)
+                        else:
+                            root.after(0, lambda: messagebox.showerror("Erro", "Erro ao excluir cliente. Tente novamente."))
                     
-                    self.api_client.save_clientes(self.clientes, on_save_complete)
-                    self.refresh_clientes_list()
-                    self.clear_form()
-                    messagebox.showinfo("Sucesso", "Cliente excluído com sucesso!")
+                    self.api_client.delete_cliente(cliente_id, on_delete_complete)
+    
+    def on_search_change(self):
+        """Callback quando o campo de busca muda"""
+        self.refresh_clientes_list()
+    
+    def clear_search(self):
+        """Limpa o campo de busca"""
+        if hasattr(self, 'search_entry'):
+            self.search_entry.delete(0, tk.END)
+            self.refresh_clientes_list()
     
     def save_cliente(self):
         """Salva o cliente usando thread"""
@@ -434,7 +488,7 @@ class ClientesWidget:
                 # Agendar notificação do dashboard na thread principal
                 root.after(0, self.dashboard_callback)
         
-        self.data_manager.save_clientes(self.clientes, on_save_complete)
+        self.api_client.save_clientes(self.clientes, on_save_complete)
         self.refresh_clientes_list()
         self.clear_form()
     
