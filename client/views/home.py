@@ -31,7 +31,7 @@ class HomeWindow:
         
         # Flag para controlar atualização periódica
         self.auto_refresh_enabled = True
-        self.auto_refresh_interval = 30000  # 30 segundos em milissegundos
+        self.auto_refresh_interval = 5000  # 5 segundos em milissegundos
         
         # ID para cancelar refresh pendente
         self._refresh_id = None
